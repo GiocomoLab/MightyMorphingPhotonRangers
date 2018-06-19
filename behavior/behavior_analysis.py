@@ -208,6 +208,7 @@ def loadmat_sbx(filename):
     from mat files. It calls the function check keys to cure all entries
     which are still mat-objects
     """
+    print(filename)
     data_ = sp.io.loadmat(filename, struct_as_record=False, squeeze_me=True)
     return _check_keys(data_)
 
@@ -368,37 +369,31 @@ class process_data:
             obj[key] = np.array(obj[key])
         return obj
 
-    def align_to_ca(self,sess,info,save_data =True):
+    def align_to_ca(self,sess,info,save_data =True,nplanes=1):
         '''align behavioral data to timeseries grid of calcium data'''
         # sbx data
         #info = sbx_loadmat(info_file)
         #get number of frames to drop from beginning
         numVRFrames = info['frame'].size
-        caInds = info['frame']
+        caInds = [int(i/nplanes) for i in info['frame']]
 
 
         lickDat = np.genfromtxt(self.basestr + sess + "_Licks.txt",dtype='float',delimiter='\t')
         lickDat = lickDat[-numVRFrames:,:]
-        # c_1  c_2 r realtimeSinceStartup
+        if lickDat.shape[1] == 4:
+            twoPort=True
+        else:
+            twoPort=False
+
 
         # reward file
         rewardDat = np.genfromtxt(self.basestr + sess + "_Rewards.txt",dtype='float',delimiter='\t')
-        #rewardDat = rewardDat[-numVRFrames:,:]
-        #print(rewardDat.shape)
-        #position.z realtimeSinceStartup paramsScript.morph side
-
-        # manual rewards - looks like this may have not saved correctly in LR sessions
-        #mRewardDat = np.genfromtxt(self.basestr + sess + "ManRewards.txt",dtype='float',delimiter='\t')
-        #mRewardDat = mRewardDat[-numVRFrames,:]
-        #realtimeSinceStartup side
-
         posDat = np.genfromtxt(self.basestr + sess + "_Pos.txt",dtype = 'float', delimiter='\t')
         posDat = posDat[-numVRFrames:]
         speed = self._calc_speed(posDat[:,0],posDat[:,1])
         # pos.z realtimeSinceStartup
 
         #  use 2P syncing pulses to make common grid for the data
-
         numCaFrames = caInds[-1]-caInds[0]+1
         fr = info['resfreq']/info['recordsPerBuffer']
         #gridData = np.zeros([tGrid.size,10])
@@ -409,8 +404,9 @@ class process_data:
         gridData['speed'][:] = np.nan
         gridData['port1 licks'] = np.zeros([numCaFrames,])
         gridData['port1 licks'][:] = np.nan
-        gridData['port2 licks'] = np.zeros([numCaFrames,])
-        gridData['port2 licks'][:] = np.nan
+        if twoPort:
+            gridData['port2 licks'] = np.zeros([numCaFrames,])
+            gridData['port2 licks'][:] = np.nan
         #gridData['punishment'] = np.zeros([tGrid.size-1,])
         gridData['morph'] = np.zeros([numCaFrames,])
         #gridData['morph'][:] = np.nan
@@ -429,51 +425,103 @@ class process_data:
         timeSinceStartup = np.zeros([numCaFrames,])
         timeSinceStartup[:] =np.nan
         nonNan = []
+
+        # find tstart_inds before resampling to prevent errors
+        tstart_inds_vec = np.zeros([numCaFrames,])
+        tstart_inds_raw = np.where(np.ediff1d(posDat[:,0],to_begin = -900)<=-300)[0]
+        print(tstart_inds_raw.shape)
+        if tstart_inds_raw.shape[0]>rewardDat.shape[0]:
+            for ind in range(tstart_inds_raw.shape[0]-1): # skip last
+                while (posDat[tstart_inds_raw[ind],0]<0) :
+                    tstart_inds_raw[ind]=tstart_inds_raw[ind]+1
+        else:
+            for ind in range(tstart_inds_raw.shape[0]): # skip last
+                while (posDat[tstart_inds_raw[ind],0]<0) :
+                    tstart_inds_raw[ind]=tstart_inds_raw[ind]+1
+        tstart_inds_raw[-1] = posDat.shape[0]-1
+        tstart_inds_vec_raw = np.zeros([posDat.shape[0],])
+        tstart_inds_vec_raw[tstart_inds_raw] = 1
+
+        #tstart_inds = []
+        #tstart_counter = 0
         for rawInd in list(np.unique(caInds)): # find indices that are within time window
             final_ind = rawInd-caInds[0]
-            inds_to_avg = caInds==rawInd
+            inds_to_avg = np.where(caInds==rawInd)[0]
 
-            gridData['position'][final_ind] = posDat[inds_to_avg,0].mean()
+            gridData['position'][final_ind] = np.nanmean(posDat[inds_to_avg,0])
             gridData['speed'][final_ind] = speed[inds_to_avg].mean()
 
             gridData['port1 licks'][final_ind] = lickDat[inds_to_avg,0].sum()
-            gridData['port2 licks'][final_ind] = lickDat[inds_to_avg,1].sum()
+            if twoPort:
+                gridData['port2 licks'][final_ind] = lickDat[inds_to_avg,1].sum()
+                gridData['rewards'][final_ind] =lickDat[inds_to_avg,2].max()
+                timeSinceStartup[final_ind] = lickDat[inds_to_avg,3].mean()
+            else:
+                gridData['rewards'][final_ind] =lickDat[inds_to_avg,1].max()
+                timeSinceStartup[final_ind] = lickDat[inds_to_avg,2].mean()
 
-            timeSinceStartup[final_ind] = lickDat[inds_to_avg,3].mean()
+
+
+
+            tstart_inds_vec[final_ind] = tstart_inds_vec_raw[inds_to_avg].max()
+            #if tstart_inds_raw[tstart_counter] in inds_to_avg:
+            #    tstart_inds.append(final_ind)
+            #    tstart_counter+=1
+        tstart_inds = np.where(np.diff(tstart_inds_vec)>0)[0]
 
         # make morph nan during inter-trial interval
         # interpolate nans
         gridData = pd.DataFrame.from_dict(gridData)
         gridData.interpolate(method='nearest',inplace=True)
 
-        # make vector of morphs and which side was rewarded
-        # find teleports
-        tstart_inds = np.where(np.ediff1d(gridData['position'].values,to_begin = -900)<=-300)[0]
-        # print(tstart_inds.shape)
-        # print(rewardDat.shape)
 
-        for trial in range(rewardDat.shape[0]-1):
+
+        print(tstart_inds.shape)
+        print(rewardDat.shape)
+        if tstart_inds.shape[0]<=rewardDat.shape[0]:
+            tstart_inds = np.append(tstart_inds,caInds[-1])
+            print("quit mid trial")
+
+        reward_inds,first_lick_inds = [],[]
+        for trial in range(rewardDat.shape[0]):
+        #print(rewardDat[trial,:])
+
             # make morph vector same length as everything else
-            # print(trial)
-            # print(tstart_inds[trial])
-            # print(rewardDat[trial,2])
-            # indVec = np.arange(0,gridData['position'].shape[0],1)
-            # boolVec[tstart_inds[trial]:tstart_inds[trial+1]]
-            gridData.iloc[tstart_inds[trial]:tstart_inds[trial+1],gridData.columns.get_loc('morph')]= rewardDat[trial,2]
+            if twoPort:
+                gridData.iloc[tstart_inds[trial]:tstart_inds[trial+1],gridData.columns.get_loc('morph')]= rewardDat[trial,2]
 
             # make 'side' vector zeros except for start of reward
             rewardTime = rewardDat[trial,1]
-            reward_ind = int(np.argmin(np.abs(timeSinceStartup-rewardTime)))
-            gridData.iloc[reward_ind,gridData.columns.get_loc('side')] = rewardDat[trial,3]
+            #print(np.abs(timeSinceStartup-rewardTime)[0:10])
+            reward_ind = np.nanargmin(np.abs(timeSinceStartup-rewardTime))
+            reward_inds.append(reward_ind)
+            #print(timeSinceStartup)
+            #print(rewardTime, reward_ind)
+            if twoPort:
+                gridData.iloc[reward_ind,gridData.columns.get_loc('side')] = rewardDat[trial,3]
+
+            rval = np.max(gridData['rewards'].values[tstart_inds[trial]:tstart_inds[trial+1]])
+            rval_ind = np.argmax(gridData['rewards'].values[tstart_inds[trial]:tstart_inds[trial+1]])
+            first_lick_inds.append(rval_ind)
+            #print(trial,rval)
+            #reward_rec_ind = int(np.argmin(np.abs(timeSinceStartup-rewardTime)))
+
+            #rval = np.max(gridData.iloc[tstart_inds[trial]:tstart_inds[trial+1],gridData.columns.get_loc('rewards')].values)
+            gridData.iloc[tstart_inds[trial]:tstart_inds[trial]+rval_ind,gridData.columns.get_loc('rewards')] = -rval
+            gridData.iloc[tstart_inds[trial]+rval_ind:tstart_inds[trial+1],gridData.columns.get_loc('rewards')] = rval
 
 
-        gridData.loc[gridData['position']<0, 'morph'] = -1
+        #gridData.loc[gridData['position']<0, 'morph'] = -1
+
 
 
         if save_data:
             pass
 
-        return gridData
+        #if tstart_inds.shape>len(reward_inds):
+        #    return gridData, tstart_inds[:-1], reward_inds, first_lick_inds
+        #else:
+        return gridData, tstart_inds[:-1], reward_inds, first_lick_inds
 
 
 
