@@ -52,7 +52,43 @@ def _todict(matobj):
 
 class process_data:
 
-    def __init__(self,mouse,sessions,workdir=""):
+    def __init__(self,mouse,sessions):
+
+
+        if basedir == "home":
+            basestr = "/Volumes/mplitt/VR/" + exp + "/" + mouse + "/"
+            #basestr = "/Users/mplitt/Dropbox/tmpVRDat/" +mouse + "/"
+        elif basedir == "work":
+            basestr = "Z:/VR/" + exp + "/" + mouse + "\\"
+
+        else:
+            raise Exception("Invalid basedir!..options are 'home' or 'work' ")
+
+        self.basestr = basestr
+
+
+
+        if len(list(sessions)) == 0: # if no sessions are specified, find all of them
+
+            data_files = glb(basestr + scene + "*_Licks.txt" )
+
+
+            sessions = [(i.split(basestr)[1]).split("_Licks.txt")[0] for i in data_files]
+
+            overwritten_files = glb(basestr + scene + "*_Licks_copy*.txt")
+            if len(overwritten_files) >0:
+                raise Exception("Files appear to have been double saved ")
+        else:
+            for s in list(sessions):
+                try:
+                    open(basestr+s+"_Licks_copy*.txt")
+                    print("WARNING!!!! multiple copies of session %s" % s)
+                except:
+                    pass
+
+
+
+
         self.sessions = sessions
         self.mouse = mouse
         self.data = {}

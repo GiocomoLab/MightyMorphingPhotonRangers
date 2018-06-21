@@ -56,6 +56,7 @@ class process_data:
         self.sessions = sessions
         self.mouse = mouse
         self.data = {}
+        self.basestr = "Z:\\VR\\2AFC_V3\\" + mouse + "\\"
 
 
     def save_sessions(self,overwrite=False):
@@ -154,10 +155,6 @@ class process_data:
 
         lickDat = np.genfromtxt(self.basestr + sess + "_Licks.txt",dtype='float',delimiter='\t')
         lickDat = lickDat[-numVRFrames:,:]
-        if lickDat.shape[1] == 4:
-            twoPort=True
-        else:
-            twoPort=False
 
 
         # reward file
@@ -176,18 +173,10 @@ class process_data:
         gridData['position'][:] = np.nan
         gridData['speed'] = np.zeros([numCaFrames,])
         gridData['speed'][:] = np.nan
-        gridData['port1 licks'] = np.zeros([numCaFrames,])
-        gridData['port1 licks'][:] = np.nan
-        if twoPort:
-            gridData['port2 licks'] = np.zeros([numCaFrames,])
-            gridData['port2 licks'][:] = np.nan
-        #gridData['punishment'] = np.zeros([tGrid.size-1,])
+        gridData['licks'] = np.zeros([numCaFrames,])
+        gridData['licks'][:] = np.nan
         gridData['morph'] = np.zeros([numCaFrames,])
-        #gridData['morph'][:] = np.nan
-        gridData['side'] = np.zeros([numCaFrames,])
-        #gridData['side'][:] = np.nan
         gridData['rewards'] = np.zeros([numCaFrames,])
-
         gridData['ca_inds'] = np.arange(caInds[0],caInds[-1]+1,1)
 
         timeSinceStartup = np.zeros([numCaFrames,])
@@ -243,13 +232,15 @@ class process_data:
             tstart_inds = np.append(tstart_inds,caInds[-1])
             print("quit mid trial")
 
+
+
         reward_inds= []
         for trial in range(rewardDat.shape[0]):
         #print(rewardDat[trial,:])
 
             # make morph vector same length as everything else
-            if twoPort:
-                gridData.iloc[tstart_inds[trial]:tstart_inds[trial+1],gridData.columns.get_loc('morph')]= rewardDat[trial,2]
+
+            gridData.iloc[tstart_inds[trial]:tstart_inds[trial+1],gridData.columns.get_loc('morph')]= rewardDat[trial,2]
 
             # make 'side' vector zeros except for start of reward
             rewardTime = rewardDat[trial,1]
@@ -268,17 +259,9 @@ class process_data:
             gridData.iloc[tstart_inds[trial]:tstart_inds[trial]+rval_ind,gridData.columns.get_loc('rewards')] = -rval
             gridData.iloc[tstart_inds[trial]+rval_ind:tstart_inds[trial+1],gridData.columns.get_loc('rewards')] = rval
 
-
-        #gridData.loc[gridData['position']<0, 'morph'] = -1
-
-
-
         if save_data:
             pass
 
-        #if tstart_inds.shape>len(reward_inds):
-        #    return gridData, tstart_inds[:-1], reward_inds, first_lick_inds
-        #else:
         return gridData, tstart_inds[:-1], reward_inds
 
 
@@ -287,18 +270,20 @@ class process_data:
         '''interpolate all behavioral timeseries to 30 Hz common grid'''
 
         # lick file
-
         lickDat = np.genfromtxt(self.basestr + sess + "_Licks.txt",dtype='float',delimiter='\t')
         # c_1  r realtimeSinceStartup
 
         # reward file
         rewardDat = np.genfromtxt(self.basestr + sess + "_Rewards.txt",dtype='float',delimiter='\t')
-        #print(rewardDat.shape)
-        #position.z realtimeSinceStartup paramsScript.morph
+
+        # timeout collision files
+        try:
+            toDat = np.genfromtxt(self.basestr + sess + "_Timeout.txt",dtype='float',delimiter='\t')
+        except:
+            pass
 
         posDat = np.genfromtxt(self.basestr + sess + "_Pos.txt",dtype = 'float', delimiter='\t')
-        speed = self._calc_speed(posDat[:,0],posDat[:,1])
-        # pos.z realtimeSinceStartup
+        # pos.z realtimeSinceStartup morph true_delta_z
 
 
         # lick data will have earliest timepoint
@@ -310,22 +295,60 @@ class process_data:
         #gridData = np.zeros([tGrid.size,10])
         gridData = {}
         gridData['position'] = np.zeros([tGrid.size-1,])
+        gridData['position'][:] = np.nan
         gridData['speed'] = np.zeros([tGrid.size-1,])
+        gridData['speed'][:] = np.nan
         gridData['licks'] = np.zeros([tGrid.size-1,])
-        gridData['timeout collisions'] = np.zeros([tGrid.size-1,])
+        gridData['licks'][:] = np.nan
         gridData['morph'] = np.zeros([tGrid.size-1,])
+        gridData['morph'][:]=np.nan
         gridData['reward collisions'] = np.zeros([tGrid.size-1,])
+        gridData['timeout collisions'] = np.zeros([tGrid.size-1])
         gridData['rewards'] = np.zeros([tGrid.size-1,])
         gridData['time'] = tGrid[:-1]
         gridData['trial'] = np.zeros([tGrid.size-1,])
+        gridData['teleports'] = np.zeros([tGrid.size-1,])
+        gridData['error lick'] = np.zeros([tGrid.size-1,])
+        gridData['trial start'] = np.zeros([tGrid.size-1,])
+        gridData['error mask'] = np.zeros([tGrid.size -1]) # 1 if error
+        gridData['omission mask'] = np.zeros([tGrid.size-1]) # 1 if omission
 
-        nonNan = []
+
+
+        # find teleport and tstart_inds before resampling to prevent errors
+        tstart_inds_vec,teleport_inds_vec = np.zeros([tGrid.size,]), np.zeros([tGrid.size,])
+        teleport_inds_raw = np.where(np.ediff1d(posDat[:,0],to_begin = -900)<=-200)[0]
+        tstart_inds_raw = np.copy(teleport_inds_raw)
+        print(teleport_inds_raw.shape)
+
+
+
+        for ind in range(tstart_inds_raw.shape[0]):  # for teleports
+            while (posDat[tstart_inds_raw[ind],0]<0) : # while position is negative
+                if tstart_inds_raw[ind] < posDat.shape[0]-1: # if you haven't exceeded the vector length
+                    tstart_inds_raw[ind]=tstart_inds_raw[ind]+ 1 # go up one index
+                else: # otherwise you should be the last teleport and delete this index
+                    print("deleting last index from trial start")
+                    tstart_inds_raw=np.delete(tstart_inds_raw,ind)
+                    break
+
+        tstart_inds_vec_raw = np.zeros([posDat.shape[0],])
+        tstart_inds_vec_raw[tstart_inds_raw] = 1
+
+        teleport_inds_vec_raw = np.zeros([posDat.shape[0],])
+        teleport_inds_vec_raw[teleport_inds_raw] = 1
+
+
         for i in range(tGrid.size-1): # find indices that are within time window
+            if i%100 == 0:
+                print(i)
             tWin = tGrid[[i, i+1]]
 
-            lickInd = np.where((lickDat[:,3]>=tWin[0]) & (lickDat[:,3] <= tWin[1]))[0]
+            lickInd = np.where((lickDat[:,2]>=tWin[0]) & (lickDat[:,2] <= tWin[1]))[0]
 
             rewardInd = np.where((rewardDat[:,1]>=tWin[0]) & (rewardDat[:,1] <= tWin[1]))[0]
+
+            toInd = np.where((toDat[:,1]>=tWin[0]) & (toDat[:,1] <= tWin[1]))[0]
 
             posInd = np.where((posDat[:,1]>=tWin[0])  & (posDat[:,1]<= tWin[1]))[0]
 
@@ -335,14 +358,22 @@ class process_data:
                 # 1) position
                 gridData['position'][i] = posDat[posInd,0].mean()
 
-                # 2) speed, calc outside of loop
-                gridData['speed'][i] = speed[posInd].mean()
+                gridData['speed'][i] = posDat[posInd,3].mean()
 
-                nonNan.append(i)
+                gridData['morph'][i] = posDat[posInd,2].max()
+
+
+                gridData['teleports'][i] = teleport_inds_vec_raw[posInd].max()
+                if teleport_inds_vec_raw[posInd].max() >0 and posDat[posInd,0].mean() < 445.:
+                    gridData['error lick'][i] = 1
+
+                gridData['trial start'][i] = tstart_inds_vec_raw[posInd].max()
+
+                tstart_inds_vec[i], teleport_inds_vec[i] = tstart_inds_vec_raw.max(), teleport_inds_vec_raw.max()
+
             else:
 
                 # 1) position
-                #gridData[i,0] = gridData[i-1,0]
                 gridData['position'][i] = np.nan
 
                 # 2) speed
@@ -351,46 +382,53 @@ class process_data:
             if lickInd.size>0:
 
                 gridData['licks'][i] = lickDat[lickInd,0].sum()
+                gridData['rewards'][i] = lickDat[lickInd,1].sum()
 
 
-            # 5) reward cam flag
+            # 5) reward flag
             if rewardInd.size>0:
-                #gridData[i,4]  = rewardDat[rewardInd,3].max()
-                gridData['rewards'][i] = rewardDat[rewardInd,3].max()
-                gridData['morph'][i] = rewardDat[rewardInd,2].max()
+                gridData['reward collisions'][i] = rewardDat[rewardInd,3].max()
+
+            if toInd.size>0:
+                gridData['timeout collisions'][i] = toDat[toInd,3].max()
 
             # 6) manual reward flag
-            if mRewardInd.size > 0:
-                #gridData[i,5] = mRewardDat[mRewardInd,3].min()
-                gridData['manual rewards'][i] = mRewardDat[mRewardInd,1].min()
+            #if mRewardInd.size > 0:
+            #    gridData['manual rewards'][i] = mRewardDat[mRewardInd,1].min()
 
-        # 9) time
-        #gridData[:,8] = tGrid
+        tstart_inds = np.where(np.diff(tstart_inds_vec)>0)[0]
+        teleport_inds = np.where(np.diff(teleport_inds_vec)>0)[0]+1
+        # makes sure last frame is a teleport
+        if teleport_inds.shape[0]<tstart_inds.shape[0]:
+            teleport_inds = np.append(teleport_inds,tGrid.size)
 
-        # interp missing position and speed info
-        inds = [i for i in range(tGrid.size-1)]
-        gridData['position'] = np.interp(inds,[inds[i] for i in nonNan],[gridData['position'][i] for i in nonNan]).tolist()
-        gridData['speed'] = np.interp(inds,[inds[i] for i in nonNan],[gridData['speed'][i] for i in nonNan]).tolist()
-
-
+        gridData = pd.DataFrame.from_dict(gridData)
+        gridData.interpolate(method='nearest',inplace=True)
 
 
-        # 10) trial number
-        try:
-            np.genfromtxt('filename 4 trial start file')
-            # find tgrid indices of new trials
-        except:
-            # find teleports and append a trial start
-            trialStart = np.where(np.ediff1d(gridData['position'],to_begin = -900, to_end = -900)<=-200)[0]
-            # find tstart_inds before resampling to prevent errors
-            for ind in range(trialStart.shape[0]): # skip last
-                while (gridData['position'][trialStart[ind]]<0) :
-                    if trialStart[ind]+1<gridData['position'].shape[0]:
-                        trialStart[ind]=tstart_inds_raw[ind]+1
-        for j in range(trialStart.size-1):
-            gridData['trial'][trialStart[j]:trialStart[j+1]] = j
+        errorTrials, rewardedTrials, omissionTrials = [], [], []
+        for trial in range(tstart_inds.shape[0]):
+            # if error licks > 1
+            # append error trial
+            if gridData['error lick'].values[tstart_inds[trial]:teleport_inds[trial]].sum() >1:
+                errorTrials.append(trial)
 
-        return gridData, trialStart
+            # else if error licks <1 and rewarded licks > 0
+            elif gridData['error lick'].values[tstart_inds[trial]:teleport_inds[trial]].sum() <1 and \
+            gridData['rewards'].values[tstart_inds[trial]:teleport_inds[trial]].sum() >1:
+            # append rewarded trialStart
+                rewardedTrials.append(trial)
+
+            # else if error licks and rewarded licks < 1
+            elif gridData['error lick'].values[tstart_inds[trial]:teleport_inds[trial]].sum() <1 and \
+            gridData['rewards'].values[tstart_inds[trial]:teleport_inds[trial]].sum() <1:
+            # append ommision
+                omissionTrials.append(trial)
+            else:
+                print("trial type not understood")
+
+
+        return gridData, (tstart_inds,teleport_inds), (rewardedTrials, errorTrials, omissionTrials)
 
 
     def _trial_lists(self,gridData,trialStart):
@@ -417,7 +455,8 @@ class process_data:
         return trialLists
 
 
-    def _reward_zone_responses(self, trialLists)
+    def _reward_zone_responses(self, trialLists):
+        pass
 
 
 
