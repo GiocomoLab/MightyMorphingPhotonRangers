@@ -45,7 +45,7 @@ def spatial_info(frmap,occupancy):
 
     return np.array(SI)
 
-def rate_map(C,position,bin_size=10,min_pos = 0, max_pos=350):
+def rate_map(C,position,bin_size=10,min_pos = 0, max_pos=450):
 
     bin_edges = np.arange(min_pos,max_pos,bin_size).tolist()
     frmap = np.zeros([len(bin_edges)-1,C.shape[1]])

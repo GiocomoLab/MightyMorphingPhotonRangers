@@ -66,7 +66,7 @@ class process_data:
         numVRFrames = info['frame'].size
         caInds = [int(i/nplanes) for i in info['frame']]
 
-        origVRData, (rewardedTrials, errorTrials, omissionTrials) = self._interpolate_data(sess)
+        origVRData, (rewardedTrials, errorTrials, omissionTrials, morphList) = self._interpolate_data()
 
 
 
@@ -92,26 +92,60 @@ class process_data:
             final_ind = rawInd-caInds[0]
             inds_to_avg = np.where(caInds==rawInd)[0]
 
-            gridData['position'][final_ind] = origVRData['position'][inds_to_avg].mean()
-            gridData['speed'][final_ind] = origVRData['speed'][inds_to_avg].mean()
+            if len(inds_to_avg)>0:
+                gridData['position'][final_ind] = origVRData['position'][inds_to_avg].mean()
+                gridData['speed'][final_ind] = origVRData['speed'][inds_to_avg].mean()
 
-            gridData['licks'][final_ind] = origVRData['licks'][inds_to_avg].sum()
-            gridData['rewards'][final_ind] =origVRData['rewards'][inds_to_avg].sum()
-            gridData['morph'][final_ind] = sp.stats.mode(origVRData['morph'][inds_to_avg],axis=None)[:]
-            gridData['teleports'][final_ind] =  origVRData['teleports'][inds_to_avg].sum()
-            gridData['tstart'][final_ind] = origVRData['tstart'][inds_to_avg].sum()
-            gridData['error lick'][final_ind] = origVRData['error lick'][inds_to_avg].sum()
-            gridData['error mask'][final_ind] = sp.stats.mode(origVRData['error mask'][inds_to_avg],axis=None)[:]
-            gridData['omission mask'][final_ind] = sp.stats.modd(origVRData['omission mask'][inds_to_avg],axis=None)[:]
+                gridData['licks'][final_ind] = origVRData['licks'][inds_to_avg].sum()
+                gridData['lick rate'][final_ind] = origVRData['lick rate'][inds_to_avg].mean()
+                gridData['rewards'][final_ind] =origVRData['rewards'][inds_to_avg].sum()
 
-            if origVRData['teleports'][inds_to_avg].sum() >0:
-                gridData['teleport inds'].append(final_ind)
+                gridData['morph'][final_ind] = origVRData['morph'][inds_to_avg].max()
+                gridData['teleports'][final_ind] =  origVRData['teleports'][inds_to_avg].sum()
+                gridData['tstart'][final_ind] = origVRData['tstart'][inds_to_avg].sum()
+                gridData['error lick'][final_ind] = origVRData['error lick'][inds_to_avg].sum()
+                gridData['error mask'][final_ind] = origVRData['error mask'][inds_to_avg].max()
+                gridData['omission mask'][final_ind] = origVRData['omission mask'][inds_to_avg].max()
 
-            if origVRData['tstart'][inds_to_avg].sum() >0:
-                gridData['tstart inds'].append(final_ind)
+                if origVRData['teleports'][inds_to_avg].sum() >0:
+                    gridData['teleport inds'].append(final_ind)
+
+                if origVRData['tstart'][inds_to_avg].sum() >0:
+                    gridData['tstart inds'].append(final_ind)
+            else:
+                gridData['position'][final_ind] = gridData['position'][final_ind-1]
+                gridData['speed'][final_ind] = gridData['speed'][final_ind-1]
+
+                gridData['licks'][final_ind] = 0
+                gridData['lick rate'][final_ind] = gridData['lick rate'][final_ind-1]
+                gridData['rewards'][final_ind] =0
+
+                gridData['morph'][final_ind] = gridData['morph'][final_ind-1]
+                gridData['teleports'][final_ind] =  0
+                gridData['tstart'][final_ind] = 0
+                gridData['error lick'][final_ind] = 0
+                gridData['error mask'][final_ind] = gridData['error mask'][final_ind-1]
+                gridData['omission mask'][final_ind] = gridData['omission mask'][final_ind-1]
 
 
-        return gridData, (rewardedTrials, errorTrials, omissionTrials)
+        for final_ind in range(numCaFrames):
+            if np.isnan(gridData['position'][final_ind]):
+                gridData['position'][final_ind] = gridData['position'][final_ind-1]
+                gridData['speed'][final_ind] = gridData['speed'][final_ind-1]
+
+                gridData['licks'][final_ind] = 0
+                gridData['lick rate'][final_ind] = gridData['lick rate'][final_ind-1]
+                gridData['rewards'][final_ind] =0
+
+                gridData['morph'][final_ind] = gridData['morph'][final_ind-1]
+                gridData['teleports'][final_ind] =  0
+                gridData['tstart'][final_ind] = 0
+                gridData['error lick'][final_ind] = 0
+                gridData['error mask'][final_ind] = gridData['error mask'][final_ind-1]
+                gridData['omission mask'][final_ind] = gridData['omission mask'][final_ind-1]
+
+
+        return gridData, (rewardedTrials, errorTrials, omissionTrials,morphList)
 
     def _interpolate_data(self):
         '''interpolate all behavioral timeseries to 30 Hz common grid...
@@ -128,18 +162,18 @@ class process_data:
                     posDat = np.genfromtxt(self.basestr + sess[i] + "_Pos.txt",dtype = 'float', delimiter='\t')
                     # pos.z realtimeSinceStartup morph true_delta_z
 
-                    lastTime = posDat[-1:1]
+                    lastTime = posDat[-1,1]
                 else:
                     tmpLickDat = np.genfromtxt(self.basestr + sess[i] + "_Licks.txt",dtype='float',delimiter='\t')
                     tmpLickDat[:,2] = tmpLickDat[:,2]+lastTime
 
                     tmpPosDat = np.genfromtxt(self.basestr + sess[i] + "_Pos.txt",dtype = 'float', delimiter='\t')
-                    tmpPosDat[:,1] = posDat[:,1]+lastTime
+                    tmpPosDat[:,1] = tmpPosDat[:,1]+lastTime
 
                     lickDat = np.vstack((lickDat,tmpLickDat))
                     posDat = np.vstack((posDat,tmpPosDat))
 
-                    lastTime = tmpPosDat[-1:1]
+                    lastTime = tmpPosDat[-1,1]
         else:
             # lick file
             lickDat = np.genfromtxt(self.basestr + sess + "_Licks.txt",dtype='float',delimiter='\t')
@@ -160,15 +194,15 @@ class process_data:
         gridData = {}
         gridData['time'] = posDat[:,1]
         gridData['position'] = posDat[:,0]
-        gridData['speed'] = self._calc_speed(posDat[:,3],posDat[:,1])
+        gridData['speed'] = np.zeros(gridData['position'].shape)
         gridData['licks'] = lickDat[:,0]
+        gridData['lick rate'] = self._calc_speed(lickDat[:,0],posDat[:,1],dx=True)
         gridData['morph'] = posDat[:,2]
         gridData['rewards'] = lickDat[:,1]
 
         # find teleport and tstart_inds before resampling to prevent errors
         tstart_inds_vec,teleport_inds_vec = np.zeros([posDat.shape[0],]), np.zeros([posDat.shape[0],])
-        teleport_inds = np.where(np.ediff1d(posDat[:,0])<=-250)[0]
-
+        teleport_inds = np.where(np.ediff1d(posDat[:,0])<=-50)[0]
         tstart_inds = np.append([0],teleport_inds[:-1])
         for ind in range(tstart_inds.shape[0]):  # for teleports
             while (posDat[tstart_inds[ind],0]<0) : # while position is negative
@@ -203,14 +237,16 @@ class process_data:
             gridData['teleports'][-1]=1
 
         errorTrials, rewardedTrials, omissionTrials, morphList = [], [], [], []
+
         for trial in range(tstart_inds.shape[0]):
-            if np.max(gridData['position'][tstart_inds[trial]:teleport_inds[trial]]) < 445:
+
+            if np.max(gridData['position'][tstart_inds[trial]:teleport_inds[trial]]) < 425:
                 gridData['error lick'][np.argmax(gridData['position'][tstart_inds[trial]:teleport_inds[trial]])+tstart_inds[trial]] = 1
                 errorTrials.append(trial)
                 gridData['error mask'][tstart_inds[trial]:teleport_inds[trial]] = 1
 
             elif np.max(gridData['rewards'][tstart_inds[trial]:teleport_inds[trial]])>0 and \
-            np.max(gridData['position'][tstart_inds[trial]:teleport_inds[trial]]) >= 445:
+            np.max(gridData['position'][tstart_inds[trial]:teleport_inds[trial]]) >= 425:
                 rewardedTrials.append(trial)
             else:
                 omissionTrials.append(trial)
@@ -218,6 +254,9 @@ class process_data:
 
             morphList.append(gridData['morph'][tstart_inds[trial]:teleport_inds[trial]].max())
 
+            gridData['speed'][tstart_inds[trial]:teleport_inds[trial]]= self._calc_speed(posDat[tstart_inds[trial]:teleport_inds[trial],0],posDat[tstart_inds[trial]:teleport_inds[trial],1],dx=False)
+
+        gridData['speed'][np.where(gridData['speed']<-10)[0]]=0
         # self.origVRData =gridData
         # self.rewardedTrials = rewardedTrials
         # self.errorTrials = errorTrials
@@ -228,22 +267,21 @@ class process_data:
 
     def make_trial_matrices(self,gridData):
         ntrials = len(gridData['tstart inds'])
-        bin_edges = np.arange(0,450,10).tolist()
-        bin_centers = np.arange(5,445,5)
+        bin_edges = np.arange(0,450,5).tolist()
+        bin_centers = np.arange(2.5,447.5,5)
 
-        print(ntrials)
-        print(len(gridData['tstart inds']))
-        print(len(gridData['teleport inds']))
+
         trial_matrices = {}
-        for key in ['speed','licks','rewards']:
+        for key in ['speed','licks','rewards','lick rate']:
             trial_matrices[key] = np.zeros([ntrials,len(bin_edges)-1])
 
         for trial in range(ntrials):
-            for key in ['speed','licks','rewards']:
+            for key in ['speed','licks','rewards', 'lick rate']:
                 firstI, lastI = gridData['tstart inds'][trial], gridData['teleport inds'][trial]
-                if key == 'speed':
+                if key in ['speed', 'lick rate']:
                     map, occ = self._rate_map(gridData[key][firstI:lastI],gridData['position'][firstI:lastI],accumulate='mean')
                     trial_matrices[key][trial,:] = map
+
                 else:
                     map, occ = self._rate_map(gridData[key][firstI:lastI],gridData['position'][firstI:lastI],accumulate='sum')
                     trial_matrices[key][trial,:] = map
@@ -252,7 +290,7 @@ class process_data:
 
 
 
-    def _rate_map(self,vec,position,bin_edges=np.arange(0,450,10).tolist(),accumulate='mean'):
+    def _rate_map(self,vec,position,bin_edges=np.arange(0,450,5).tolist(),accumulate='mean'):
         #bin_edges = np.arange(min_pos,max_pos,bin_size).tolist()
         frmap = np.zeros([len(bin_edges)-1,])
         occupancy = np.zeros([len(bin_edges)-1,])
