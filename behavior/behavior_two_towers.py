@@ -56,7 +56,7 @@ class process_data:
         self.sessions = sessions
         self.mouse = mouse
         self.data = {}
-        self.basestr = "Z:\\VR\\2AFC_V3\\" + mouse + "\\"
+        self.basestr = "Z:\\VR\\TwoTower\\" + mouse + "\\"
     def align_to_ca(self,info,nplanes=1):
         sess = self.sessions
         '''align behavioral data to timeseries grid of calcium data'''
@@ -194,6 +194,7 @@ class process_data:
         gridData = {}
         gridData['time'] = posDat[:,1]
         gridData['position'] = posDat[:,0]
+        gridData['delta z'] = posDat[:,3]
         gridData['speed'] = np.zeros(gridData['position'].shape)
         gridData['licks'] = lickDat[:,0]
         gridData['lick rate'] = self._calc_speed(lickDat[:,0],posDat[:,1],dx=True)
@@ -231,6 +232,11 @@ class process_data:
         gridData['error mask'] = np.zeros([posDat.shape[0],]) # 1 if error
         gridData['omission mask'] = np.zeros([posDat.shape[0],]) # 1 if omission
 
+        gridData['tower jitter'] = np.zeros([posDat.shape[0],])
+        gridData['wall jitter'] = np.zeros([posDat.shape[0],])
+        gridData['background jitter'] = np.zeros([posDat.shape[0],])
+        gridData['trial number'] = np.zeros([posDat.shape[0],])
+
         # makes sure last frame is a teleport
         if teleport_inds.shape[0]<tstart_inds.shape[0]:
             teleport_inds = np.append(teleport_inds,posDat.shape[0]-1)
@@ -256,6 +262,7 @@ class process_data:
 
             gridData['speed'][tstart_inds[trial]:teleport_inds[trial]]= self._calc_speed(posDat[tstart_inds[trial]:teleport_inds[trial],0],posDat[tstart_inds[trial]:teleport_inds[trial],1],dx=False)
 
+
         gridData['speed'][np.where(gridData['speed']<-10)[0]]=0
         # self.origVRData =gridData
         # self.rewardedTrials = rewardedTrials
@@ -263,6 +270,124 @@ class process_data:
         # self.omissionTrials = omissionTrials
         # self.morphList = morphList
         return gridData, (rewardedTrials, errorTrials, omissionTrials, morphList)
+
+    def to_sql_dicts(self):
+        '''interpolate all behavioral timeseries to 30 Hz common grid...
+        for now just converting data to dictionaries'''
+        sess = self.sessions
+
+        # lick file
+        try:
+            lickDat = np.genfromtxt(self.basestr + sess + "_Licks.txt",dtype='float',delimiter='\t')
+        # c_1  r realtimeSinceStartup
+        except:
+            lickDat = np.genfromtxt(self.basestr + sess + "Licks.txt",dtype='float',delimiter='\t')
+
+        # reward file
+        try:
+            rewardDat = np.genfromtxt(self.basestr + sess + "_Rewards.txt",delimiter='\t')
+        except:
+            rewardDat = np.genfromtxt(self.basestr + sess + "Rewards.txt",delimiter='\t')
+
+        # timeout collision files
+        try:
+            rewardDat = np.vstack((rewardDat,np.genfromtxt(self.basestr + sess + "_Timeout.txt",dtype=None,delimiter='\t')))
+        except:
+            try:
+                rewardDat = np.vstack((rewardDat,np.genfromtxt(self.basestr + sess + "Timeout.txt",dtype=None,delimiter='\t')))
+            except:
+                pass
+
+        try:
+            posDat = np.genfromtxt(self.basestr + sess + "_Pos.txt",dtype = 'float', delimiter='\t')
+        except:
+            posDat = np.genfromtxt(self.basestr + sess + "Pos.txt",dtype = 'float', delimiter='\t')
+        # pos.z realtimeSinceStartup morph true_delta_z
+        try:
+            manRewardDat = np.reshape(np.genfromtxt(self.basestr + sess + "ManRewards.txt", delimiter='\t'),[-1,2])
+        except:
+            manRewardDat = np.array([])
+        if lickDat.shape[0] != posDat.shape[0]:
+            print("lick data and position data not of consistent lengths. deal with this!!!!")
+
+        gridData = {}
+        gridData['time'] = posDat[:,1]
+        gridData['position'] = posDat[:,0]
+        gridData['delta z'] = posDat[:,3]
+        gridData['speed'] = np.zeros(gridData['position'].shape)
+        gridData['licks'] = lickDat[:,0]
+        gridData['lick rate'] = self._calc_speed(lickDat[:,0],posDat[:,1],dx=True)
+        gridData['morph'] = posDat[:,2]
+        gridData['rewards'] = lickDat[:,1]
+
+        # find teleport and tstart_inds before resampling to prevent errors
+        tstart_inds_vec,teleport_inds_vec = np.zeros([posDat.shape[0],]), np.zeros([posDat.shape[0],])
+        teleport_inds = np.where(np.ediff1d(posDat[:,0])<=-50)[0]
+        tstart_inds = np.append([0],teleport_inds[:-1])
+        for ind in range(tstart_inds.shape[0]):  # for teleports
+            while (posDat[tstart_inds[ind],0]<0) : # while position is negative
+                if tstart_inds[ind] < posDat.shape[0]-1: # if you haven't exceeded the vector length
+                    tstart_inds[ind]=tstart_inds[ind]+ 1 # go up one index
+                else: # otherwise you should be the last teleport and delete this index
+                    print("deleting last index from trial start")
+                    tstart_inds=np.delete(tstart_inds,ind)
+                    break
+
+        tstart_inds_vec = np.zeros([posDat.shape[0],])
+        tstart_inds_vec[tstart_inds] = 1
+
+        teleport_inds_vec = np.zeros([posDat.shape[0],])
+        teleport_inds_vec[teleport_inds] = 1
+
+        gridData['teleport inds'] = teleport_inds
+        gridData['tstart inds'] = tstart_inds
+
+
+        gridData['teleports'] = teleport_inds_vec
+        gridData['tstart'] = tstart_inds_vec
+
+
+        gridData['error lick'] = np.zeros([posDat.shape[0],])
+        gridData['error mask'] = np.zeros([posDat.shape[0],]) # 1 if error
+        gridData['omission mask'] = np.zeros([posDat.shape[0],]) # 1 if omission
+
+        gridData['tower jitter'] = np.zeros([posDat.shape[0],])
+        gridData['wall jitter'] = np.zeros([posDat.shape[0],])
+        gridData['background jitter'] = np.zeros([posDat.shape[0],])
+        gridData['click on'] = np.zeros([posDat.shape[0],])
+        if(rewardDat.shape[1]==7):
+            for r in range(rewardDat.shape[0]):
+                rInd = np.argmin(np.abs(gridData['time']-rewardDat[r,1]))
+                gridData['click on'][rInd] = int(rewardDat[r,3]==True)
+                gridData['tower jitter'][rInd] = rewardDat[r,4]
+                gridData['wall jitter'][rInd] = rewardDat[r,5]
+                gridData['background jitter'][rInd] = rewardDat[r,6]
+
+
+
+        # makes sure last frame is a teleport
+        if teleport_inds.shape[0]<tstart_inds.shape[0]:
+            teleport_inds = np.append(teleport_inds,posDat.shape[0]-1)
+            gridData['teleports'][-1]=1
+
+
+        for trial in range(tstart_inds.shape[0]):
+
+            for key in ['click on', 'tower jitter', 'wall jitter', 'background jitter']:
+                tmp_dat = gridData[key][tstart_inds[trial]:teleport_inds[trial]]
+                if tmp_dat.shape[0] != 0:
+                    val = np.argmax(np.abs(tmp_dat))
+                    gridData[key][tstart_inds[trial]:teleport_inds[trial]] = tmp_dat[val]
+
+
+        gridData['man rewards'] = np.zeros([posDat.shape[0],])
+        print(manRewardDat.shape)
+        if manRewardDat.shape[0]>0:
+            for row in range(manRewardDat.shape[0]):
+                mInd = np.argmin(np.abs(gridData['time']-manRewardDat[row,0]))
+                gridData['man rewards'][mInd] = 1
+
+        return gridData
 
 
     def make_trial_matrices(self,gridData):
@@ -357,89 +482,3 @@ class process_data:
 
     def _smooth_speed(self,speed,smooth=10):
         return gaussian_filter(speed,smooth)
-
-
-    # def save_sessions(self,overwrite=False):
-    #     '''if session file does not exist, make it'''
-    #
-    #     for sess in self.sessions:
-    #         fname = self.basestr + sess + '.json'
-    #         try:
-    #             open(fname,'r')
-    #             if overwrite:
-    #                 os.remove(fname)
-    #                 self._save_single_session(sess)
-    #         except:
-    #             self._save_single_session(sess)
-    #
-    #
-    #
-    # def load_sessions(self,verbose = False):
-    #     '''if session file exists, load it. If not, create it'''
-    #     D, R = {}, {}
-    #     for sess in self.sessions:
-    #         if verbose:
-    #             print('loading ' + sess)
-    #         fname = self.basestr + sess + '.json'
-    #         try:
-    #             #print(fname)
-    #             D[sess], R[sess] = self._load_single_session(fname)
-    #         except:
-    #             self._save_single_session(sess)
-    #             D[sess], R[sess] = self._load_single_session(fname)
-    #
-    #     self.gridData = D
-    #     self.rewardTrig = R
-    #     return R, D
-    #
-    #
-    # def concatenate_sessions(self,sessions=[]):
-    #     '''concatenate numpy arrays of data'''
-    #     if len(sessions) == 0:
-    #         sessions = self.sessions
-    #
-    #     Dall, Rall = {}, {}
-    #
-    #     for key in self.rewardTrig[sessions[0]].keys():
-    #         if key == 'time':
-    #             Rall[key] = self.rewardTrig[sessions[0]][key]
-    #         else:
-    #             Rall[key] = np.concatenate(tuple([self.rewardTrig[sess][key] for sess in sessions]),axis = 0)
-    #
-    #     for key in self.gridData[sessions[0]].keys():
-    #         Dall[key] = np.concatenate(tuple([self.gridData[sess][key] for sess in sessions]))
-    #
-    #     return Rall, Dall
-    #
-    #
-    # def _save_single_session(self,sess):
-    #     gridData = self._interpolate_data(sess) # interpolate onto single grid
-    #     #dataDict = self._find_single_trials(gridData) # make lists of lists for trials
-    #     rewardData = self._reward_trig_dat(gridData) # create numpy arrays
-    #
-    #     # save json
-    #     fname = self.basestr + sess + '.json'
-    #     with open(fname,'w') as f:
-    #         json.dump({'time grid':self._make_jsonable(gridData),'reward trig':self._make_jsonable(rewardData)},f)
-    #
-    # def _make_jsonable(self,obj):
-    #     '''convert all numpy arrays to lists or lists of lists to save as JSON files'''
-    #     obj['tolist'] = []
-    #     for key in obj.keys():
-    #         if isinstance(obj[key],np.ndarray):
-    #             obj[key] = obj[key].tolist()
-    #             obj['tolist'].append(key)
-    #     return obj
-    #
-    # def _load_single_session(self,filename):
-    #     '''load json file and return all former numpy arrays to such objects'''
-    #     with open(filename) as f:
-    #         d = json.load(f) # return saved instance
-    #
-    #     return self._unjson(d['time grid']), self._unjson(d['reward trig'])
-    #
-    # def _unjson(self,obj):
-    #     '''convert lists to numpy arrays'''
-    #     for key in obj['tolist']:
-    #         obj[key] = np.array(obj[key])
-    #     return obj
