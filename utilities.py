@@ -48,6 +48,8 @@ def spatial_info(frmap,occupancy):
 def rate_map(C,position,bin_size=10,min_pos = 0, max_pos=450):
 
     bin_edges = np.arange(min_pos,max_pos,bin_size).tolist()
+    if len(C.shape) ==1:
+        C = np.expand_dims(C,axis=1)
     frmap = np.zeros([len(bin_edges)-1,C.shape[1]])
     occupancy = np.zeros([len(bin_edges)-1,])
     for i, (edge1,edge2) in enumerate(zip(bin_edges[:-1],bin_edges[1:])):
@@ -57,6 +59,29 @@ def rate_map(C,position,bin_size=10,min_pos = 0, max_pos=450):
         else:
             pass
     return frmap, occupancy/occupancy.ravel().sum()
+
+def make_pos_bin_trial_matrices(arr, pos, tstart, tstop,method = 'mean',bin_size=5):
+    ntrials = np.sum(tstart)
+    bin_edges = np.arange(0,450,bin_size).tolist()
+    bin_centers = np.arange(2.5,447.5,bin_size)
+    #print(len(bin_edges),bin_centers.shape)
+
+
+    if len(arr.shape)<2:
+        arr = np.expand_dims(arr,axis=1)
+
+    trial_mat = np.zeros([ntrials,len(bin_edges)-1,arr.shape[1]])
+    tstart_inds, tstop_inds = np.where(tstart==1)[0],np.where(tstop==1)[0]
+    for trial in range(ntrials):
+
+            firstI, lastI = tstart_inds[trial], tstop_inds[trial]
+            #print(arr[firstI:lastI])
+            map, occ = rate_map(arr[firstI:lastI],pos[firstI:lastI],bin_size=bin_size)
+
+            trial_mat[trial,:,:] = map
+            #print(map.ravel())
+    # self.trial_matrices = trial_matrices
+    return np.squeeze(trial_mat), bin_edges, bin_centers
 
 def spatial_info_perm_test(SI,C,position,nperms = 10000):
 
