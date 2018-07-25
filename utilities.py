@@ -1,11 +1,62 @@
 import numpy as np
 import h5py
 import scipy as sp
+import scipy.stats
+import scipy.io
+import scipy.interpolate
 from random import randrange
+import sqlite3 as sql
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 from scipy.ndimage.filters import gaussian_filter
+import pandas as pd
+from datetime import datetime
+from glob import glob
+from astropy.convolution import convolve, Gaussian1DKernel
+
+def loadmat_sbx(filename):
+    """
+    this function should be called instead of direct spio.loadmat
+
+    as it cures the problem of not properly recovering python dictionaries
+    from mat files. It calls the function check keys to cure all entries
+    which are still mat-objects
+    """
+    print(filename)
+    data_ = sp.io.loadmat(filename, struct_as_record=False, squeeze_me=True)
+    return _check_keys(data_)
+
+
+def _check_keys(dict):
+    """
+    checks if entries in dictionary rare mat-objects. If yes todict is called to change them to nested dictionaries
+    """
+
+    for key in dict:
+        if isinstance(dict[key], sp.io.matlab.mio5_params.mat_struct):
+            dict[key] = _todict(dict[key])
+
+    return dict
+
+
+def _todict(matobj):
+    """
+    A recursive function which constructs from matobjects nested dictionaries
+    """
+
+    dict = {}
+    for strg in matobj._fieldnames:
+        elem = matobj.__dict__[strg]
+        if isinstance(elem, sp.io.matlab.mio5_params.mat_struct):
+            dict[strg] = _todict(elem)
+        else:
+            dict[strg] = elem
+    return dict
 
 
 def load_ca_mat(fname):
+    """load results from cnmf"""
+
     ca_dat = {}
     try:
         with h5py.File(fname,'r') as f:
@@ -45,12 +96,16 @@ def spatial_info(frmap,occupancy):
 
     return np.array(SI)
 
+def nan_helper(y):
+    return np.isnan(y), lambda z: z.nonzero()[0]
+
 def rate_map(C,position,bin_size=10,min_pos = 0, max_pos=450):
 
-    bin_edges = np.arange(min_pos,max_pos,bin_size).tolist()
+    bin_edges = np.arange(min_pos,max_pos+bin_size,bin_size).tolist()
     if len(C.shape) ==1:
         C = np.expand_dims(C,axis=1)
     frmap = np.zeros([len(bin_edges)-1,C.shape[1]])
+    frmap[:] = np.nan
     occupancy = np.zeros([len(bin_edges)-1,])
     for i, (edge1,edge2) in enumerate(zip(bin_edges[:-1],bin_edges[1:])):
         if np.where((position>edge1) & (position<=edge2))[0].shape[0]>0:
@@ -62,22 +117,25 @@ def rate_map(C,position,bin_size=10,min_pos = 0, max_pos=450):
 
 def make_pos_bin_trial_matrices(arr, pos, tstart, tstop,method = 'mean',bin_size=5):
     ntrials = np.sum(tstart)
-    bin_edges = np.arange(0,450,bin_size).tolist()
-    bin_centers = np.arange(2.5,447.5,bin_size)
+    bin_edges = np.arange(0,450+bin_size,bin_size)
+    bin_centers = bin_edges[:-1]+bin_size/2
+    bin_edges = bin_edges.tolist()
     #print(len(bin_edges),bin_centers.shape)
 
 
     if len(arr.shape)<2:
         arr = np.expand_dims(arr,axis=1)
 
-    trial_mat = np.zeros([ntrials,len(bin_edges)-1,arr.shape[1]])
+    trial_mat = np.zeros([int(ntrials),len(bin_edges)-1,arr.shape[1]])
+    trial_mat[:] = np.nan
     tstart_inds, tstop_inds = np.where(tstart==1)[0],np.where(tstop==1)[0]
-    for trial in range(ntrials):
+    for trial in range(int(ntrials)):
 
             firstI, lastI = tstart_inds[trial], tstop_inds[trial]
             #print(arr[firstI:lastI])
             map, occ = rate_map(arr[firstI:lastI],pos[firstI:lastI],bin_size=bin_size)
-
+            #nans,x = nan_helper(map)
+            #map[nans] = np.interp(x(nans),x(~nans),map[~nans])
             trial_mat[trial,:,:] = map
             #print(map.ravel())
     # self.trial_matrices = trial_matrices
@@ -151,3 +209,268 @@ def across_trial_avg(trialMat,labelVec):
         avgMat[i,:,:] = np.nanmean(trialMat[labelVec==val,:,:],axis=0)
 
     return avgMat, labels
+
+
+
+def build_2P_filename(mouse,date,scene,sess,serverDir = "G:\\My Drive\\2P_Data\\TwoTower"):
+    results_file=glob("%s\\%s\\%s\\%s\\%s_*%s_*_cnmf_results_pre.mat" % (serverDir, mouse, date, scene, scene, sess))
+    info_file = glob("%s\\%s\\%s\\%s\\%s_*%s_*.mat" % (serverDir, mouse, date, scene, scene, sess))
+    if len(info_file)==0:
+        #raise Exception("file doesn't exist")
+        return None, None
+    elif len(info_file)>0 and len(results_file)==0:
+        return None, info_file[0]
+    else:
+        return results_file[0], info_file[0]
+
+def build_VR_filename(mouse,date,scene,session,serverDir = "G:\\My Drive\\VR_Data\\TwoTower"):
+    file=glob("%s\\%s\\%s\\%s_%s.sqlite" % (serverDir, mouse, date, scene, session))
+    if len(file)==1:
+        return file[0]
+    else:
+        print("%s\\%s\\%s\\%s_%s.sqlite" % (serverDir, mouse, date, scene, session))
+        raise Exception("file doesn't exist")
+
+def trial_type_dict(mat,type_vec):
+    d = {'all': np.squeeze(mat)}
+    d['labels'] = type_vec
+    d['indices']={}
+    for i,m in enumerate(np.unique(type_vec)):
+        d['indices'][m] = np.where(type_vec==m)[0]
+        d[m] = d['all'][d['indices'][m],:]
+
+    return d
+
+def _VR_align_to_2P(frame,infofile, n_imaging_planes = 1):
+
+    info = loadmat_sbx(infofile)['info']
+    numVRFrames = info['frame'].size
+    caInds = np.array([int(i/n_imaging_planes) for i in info['frame']])
+
+    numCaFrames = caInds[-1]-caInds[0]+1
+    fr = info['resfreq']/info['recordsPerBuffer']
+
+    frame = frame.iloc[-numVRFrames:]
+    frame['ca inds'] = caInds
+    #tmp_frame = frame.groupby(['ca inds'])
+    ca_df = pd.DataFrame(columns = frame.columns,index=np.arange(numCaFrames))
+
+    ca_df['time'] = np.arange(0,1/fr*numCaFrames,1/fr)
+
+    vr_time = frame['time']._values
+    vr_time = vr_time - vr_time[0]
+
+    ca_time = np.arange(0,np.min([ca_df['time'].iloc[-1], vr_time[-1]]),1/fr)
+    underhang = int(np.round((1/fr*numCaFrames-ca_time[-1])*fr))
+
+    print(ca_df.iloc[:-underhang+1].shape)
+    #f_mean = sp.interpolate.interp1d(vr_time,frame[['pos','dz']]._values,axis=0,kind='slinear')
+    f_mean = sp.interpolate.interp1d(vr_time,frame['pos']._values,axis=0,kind='slinear')
+    print(f_mean(ca_time).shape)
+    ca_df.loc[ca_df.time<=vr_time[-1],'pos'] = f_mean(ca_time)
+
+    near_list = ['morph','clickOn','towerJitter','wallJitter','bckgndJitter']
+    f_nearest = sp.interpolate.interp1d(vr_time,frame[near_list]._values,axis=0,kind='nearest')
+    ca_df.loc[ca_df.time<=vr_time[-1],near_list] = f_nearest(ca_time)
+
+    cumsum_list = ['dz','lick','reward','tstart','teleport']
+
+    f_cumsum = sp.interpolate.interp1d(vr_time,np.cumsum(frame[cumsum_list]._values,axis=0),axis=0,kind='slinear')
+    ca_cumsum = np.round(np.insert(f_cumsum(ca_time),0,[0,0, 0 ,0,0],axis=0))
+    if ca_cumsum[-1,-1]<ca_cumsum[-1,-2]:
+        ca_cumsum[-1,-1]+=1
+    #ca_df[cumsum_list].iloc[1:-underhang+1]=np.diff(ca_cumsum,axis=0
+
+    ca_df.loc[ca_df.time<=vr_time[-1],cumsum_list] = np.diff(ca_cumsum,axis=0)
+
+    ca_df.fillna(method='ffill',inplace=True)
+    k = Gaussian1DKernel(5)
+    cum_dz = convolve(np.cumsum(ca_df['dz']._values),k,boundary='extend')
+    ca_df['dz'] = np.ediff1d(cum_dz,to_end=0)
+
+
+    ca_df['speed'].interpolate(method='linear',inplace=True)
+    ca_df['speed']=np.array(np.divide(ca_df['dz'],np.ediff1d(ca_df['time'],to_begin=1./fr)))
+    ca_df['speed'].iloc[0]=0
+
+    # ca_df['speed'] = convolve(ca_df['speed']._values,k,boundary='extend')
+    ca_df['lick rate'] = np.array(np.divide(ca_df['lick'],np.ediff1d(ca_df['time'],to_begin=1./fr)))
+    ca_df['lick rate'] = convolve(ca_df['lick rate']._values,k,boundary='extend')
+    ca_df[['reward','tstart','teleport','lick','clickOn','towerJitter','wallJitter','bckgndJitter']].fillna(value=0,inplace=True)
+
+    return ca_df
+
+def _get_frame(f,fix_teleports=True):
+    sess_conn = sql.connect(f)
+    frame = pd.read_sql('''SELECT time, pos, dz, morph, lick, reward, tstart, teleport, clickOn, towerJitter
+                , wallJitter, bckgndJitter FROM data''',sess_conn)
+
+    #frame.loc[frame.dz>.2,'dz']=.2
+    k = Gaussian1DKernel(5)
+    frame['speed']=np.array(np.divide(frame['dz'],np.ediff1d(frame['time'],to_begin=.001)))
+    frame['lick rate'] = np.array(np.divide(frame['lick'],np.ediff1d(frame['time'],to_begin=.001)))
+
+    if fix_teleports:
+        tstart_inds_vec,teleport_inds_vec = np.zeros([frame.shape[0],]), np.zeros([frame.shape[0],])
+        pos = frame['pos']._values
+        teleport_inds = np.where(np.ediff1d(pos,to_end=0)<=-50)[0]
+        tstart_inds = np.append([0],teleport_inds[:-1]+1)
+        for ind in range(tstart_inds.shape[0]):  # for teleports
+            while (pos[tstart_inds[ind]]<0) or (pos[tstart_inds[ind]]>5) : # while position is negative
+                if tstart_inds[ind] < pos.shape[0]-1: # if you haven't exceeded the vector length
+                    tstart_inds[ind]=tstart_inds[ind]+ 1 # go up one index
+                else: # otherwise you should be the last teleport and delete this index
+                    print("deleting last index from trial start")
+                    tstart_inds=np.delete(tstart_inds,ind)
+                    break
+
+        tstart_inds_vec = np.zeros([frame.shape[0],])
+        tstart_inds_vec[tstart_inds] = 1
+
+        teleport_inds_vec = np.zeros([frame.shape[0],])
+        teleport_inds_vec[teleport_inds] = 1
+        frame['teleport']=teleport_inds_vec
+        frame['tstart']=tstart_inds_vec
+
+
+    return frame
+
+
+
+def behavior_dataframe(filenames,scanmats=None,concat = True, sig=10):
+
+    if scanmats is None:
+        if isinstance(filenames,list):
+            frames = [_get_frame(f) for f in filenames]
+            df = pd.concat(frames,ignore_index=True)
+        else:
+            df = _get_frame(filenames)
+        df['trial number'] = np.cumsum(df['teleport'])
+
+        if isinstance(filenames,list):
+            if concat:
+                return df
+            else:
+                return frames
+        else:
+            return df
+
+    else:
+        if isinstance(filenames,list):
+            if len(filenames)!=len(scanmats):
+                raise Exception("behavior and scanfile lists must be of the same length")
+            else:
+                frames = [_VR_align_to_2P(_get_frame(f),s) for (f,s) in zip(filenames,scanmats)]
+                df = pd.concat(frames,ignore_index=True)
+        else:
+
+            df = _VR_align_to_2P(_get_frame(filenames),scanmats)
+        df['trial number'] = np.cumsum(df['teleport'])
+
+        if isinstance(filenames,list):
+            if concat:
+
+                return df
+            else:
+                return frames
+        else:
+            return df
+
+
+def smooth_raster(x,mat,ax=None,smooth=False,sig=2,vals=None):
+    if ax is None:
+        f,ax = plt.subplots
+
+    if smooth:
+        k = Gaussian1DKernel(5)
+        for i in range(mat.shape[0]):
+            mat[i,:] = convolve(mat[i,:],k,boundary='extend')
+
+    for ind,i in enumerate(np.arange(mat.shape[0]-1,0,-1)):
+        if vals is not None:
+            ax.fill_between(x,mat[ind,:]+i,y2=i,color=plt.cm.cool(np.float(vals[ind])),linewidth=.01)
+        else:
+            ax.fill_between(x,mat[ind,:]+i,y2=i,color = 'black',linewidth=.01)
+    #ax.set_y
+    ax.set_yticks(np.arange(0,mat.shape[0],10))
+    ax.set_yticklabels(["%d" % l for l in np.arange(mat.shape[0],0,-10).tolist()])
+
+    return ax
+
+def load_session_db():
+    conn = sql.connect("G:\\My Drive\\VR_Data\\TwoTower\\behavior.sqlite")
+    df = pd.read_sql("SELECT MouseName, DateFolder, SessionNumber,Track, RewardCount, Imaging FROM sessions",conn)
+    df['DateTime'] = [datetime.strptime(s,'%d_%m_%Y') for s in df['DateFolder']]
+    df['data file'] = [ build_VR_filename(df['MouseName'].iloc[i],
+                                           df['DateFolder'].iloc[i],
+                                           df['Track'].iloc[i],
+                                           df['SessionNumber'].iloc[i]) for i in range(df.shape[0])]
+    choose_first, choose_second = lambda x: x[0], lambda x: x[1]
+    df['scanfile'] = [choose_first(build_2P_filename(df['MouseName'].iloc[i],
+                                        df['DateFolder'].iloc[i],
+                                        df['Track'].iloc[i],
+                                        df['SessionNumber'].iloc[i])) for i in range(df.shape[0])]
+    df['scanmat'] = [choose_second(build_2P_filename(df['MouseName'].iloc[i],
+                                        df['DateFolder'].iloc[i],
+                                        df['Track'].iloc[i],
+                                        df['SessionNumber'].iloc[i])) for i in range(df.shape[0])]
+    conn.close()
+    return df
+
+def lick_plot(d,bin_edges,rzone0=(250.,315),rzone1=(350,415),smooth=True,ratio = True):
+
+    f = plt.figure(figsize=[15,15])
+
+    gs = gridspec.GridSpec(5,5)
+
+
+    ax = f.add_subplot(gs[0:-1,0:-1])
+    ax.axvspan(rzone0[0],rzone0[1],alpha=.2,color=plt.cm.cool(np.float(0)),zorder=0)
+    ax.axvspan(rzone1[0],rzone1[1],alpha=.2,color=plt.cm.cool(np.float(1)),zorder=0)
+    ax = smooth_raster(bin_edges[:-1],d['all'],vals=d['labels'],ax=ax,smooth=smooth)
+    ax.set_ylabel('Trial',size='xx-large')
+
+
+    meanlr_ax = f.add_subplot(gs[-1,:-1])
+    meanlr_ax.axvspan(rzone0[0],rzone0[1],alpha=.2,color=plt.cm.cool(np.float(0)),zorder=0)
+    meanlr_ax.axvspan(rzone1[0],rzone1[1],alpha=.2,color=plt.cm.cool(np.float(1)),zorder=0)
+    for i, m in enumerate(np.unique(d['labels'])):
+        meanlr_ax.plot(bin_edges[:-1],np.nanmean(d[m],axis=0),color=plt.cm.cool(np.float(m)))
+    meanlr_ax.set_ylabel('Licks/sec',size='xx-large')
+    meanlr_ax.set_xlabel('Position (cm)',size='xx-large')
+
+
+    if ratio:
+        lickrat_ax = f.add_subplot(gs[:-1,-1])
+        bin_edges = np.array(bin_edges)
+        rzone0_inds = np.where((bin_edges[:-1]>=rzone0[0]) & (bin_edges[:-1] <= rzone0[1]))[0]
+        rzone1_inds = np.where((bin_edges[:-1]>=rzone1[0]) & (bin_edges[:-1] <= rzone1[1]))[0]
+        rzone_lick_ratio = {}
+        for i,m in enumerate(np.unique(d['labels'])):
+            zone0_lick_rate = d[m][:,rzone0_inds].mean(axis=1)
+            zone1_lick_rate = d[m][:,rzone1_inds].mean(axis=1)
+            rzone_lick_ratio[m] = np.divide(zone0_lick_rate,zone0_lick_rate+zone1_lick_rate)
+            rzone_lick_ratio[m][np.isinf(rzone_lick_ratio[m])]=np.nan
+
+        for i,m in enumerate(np.unique(d['labels'])):
+
+            trial_index = d['labels'].shape[0] - d['indices'][m]
+            lickrat_ax.scatter(rzone_lick_ratio[m],trial_index,
+                               c=plt.cm.cool(np.float(m)),s=10)
+            k = Gaussian1DKernel(5)
+            lickrat_ax.plot(convolve(rzone_lick_ratio[m],k,boundary='extend'),trial_index,c=plt.cm.cool(np.float(m)))
+        lickrat_ax.set_yticklabels([])
+        lickrat_ax.set_xlabel(r'$\frac{zone_0}{zone_0 + zone_1}  $',size='xx-large')
+
+
+        for axis in [ax, meanlr_ax, lickrat_ax]:
+            for edge in ['top','right']:
+                axis.spines[edge].set_visible(False)
+
+        return f, (ax, meanlr_ax, lickrat_ax)
+    else:
+        for axis in [ax, meanlr_ax]:
+            for edge in ['top','right']:
+                axis.spines[edge].set_visible(False)
+
+        return f, (ax, meanlr_ax)

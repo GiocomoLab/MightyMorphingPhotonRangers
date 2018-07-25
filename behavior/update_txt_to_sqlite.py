@@ -121,7 +121,7 @@ for mouse in mice:
                 # find teleport and tstart_inds before resampling to prevent errors
                 tstart_inds_vec,teleport_inds_vec = np.zeros([posDat.shape[0],]), np.zeros([posDat.shape[0],])
                 teleport_inds = np.where(np.ediff1d(posDat[:,0])<=-50)[0]
-                tstart_inds = np.append([0],teleport_inds[:-1])
+                tstart_inds = np.append([0],teleport_inds[:-1]+1)
                 for ind in range(tstart_inds.shape[0]):  # for teleports
                     while (posDat[tstart_inds[ind],0]<0) : # while position is negative
                         if tstart_inds[ind] < posDat.shape[0]-1: # if you haven't exceeded the vector length
@@ -204,8 +204,8 @@ for mouse in mice:
             imaging=0
 
 
-        sess_c.execute("INSERT INTO sessions (MouseName, DateFolder, SessionNumber, Track, RewardCount, Imaging) VALUES ('%s','%s',%d,'%s',%d,%d)" % (mouse,ds,num_old,sess,nRewards,imaging))
+        #sess_c.execute("INSERT INTO sessions (MouseName, DateFolder, SessionNumber, Track, RewardCount, Imaging) VALUES ('%s','%s',%d,'%s',%d,%d)" % (mouse,ds,num_old,sess,nRewards,imaging))
 
-sess_connect.commit()
-sess_connect.close()
+#sess_connect.commit()
+#sess_connect.close()
         # delete old text files
