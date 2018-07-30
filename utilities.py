@@ -12,6 +12,7 @@ from scipy.ndimage.filters import gaussian_filter
 import pandas as pd
 from datetime import datetime
 from glob import glob
+import os.path
 from astropy.convolution import convolve, Gaussian1DKernel
 
 def loadmat_sbx(filename):
@@ -213,8 +214,13 @@ def across_trial_avg(trialMat,labelVec):
 
 
 def build_2P_filename(mouse,date,scene,sess,serverDir = "G:\\My Drive\\2P_Data\\TwoTower"):
-    results_file=glob("%s\\%s\\%s\\%s\\%s_*%s_*_cnmf_results_pre.mat" % (serverDir, mouse, date, scene, scene, sess))
-    info_file = glob("%s\\%s\\%s\\%s\\%s_*%s_*.mat" % (serverDir, mouse, date, scene, scene, sess))
+    results_fname = os.path.join(serverDir,mouse,date,scene,"%s_*%s_*_cnmf_results_pre.mat" % (scene,sess))
+    results_file=glob(results_fname)
+    info_fname = os.path.join(serverDir,mouse,date,scene,"%s_*%s_*.mat" % (scene,sess))
+    info_file = glob(info_fname)
+    #results_file=glob("%s\\%s\\%s\\%s\\%s_*%s_*_cnmf_results_pre.mat" % (serverDir, mouse, date, scene, scene, sess))
+    #info_file = glob("%s\\%s\\%s\\%s\\%s_*%s_*.mat" % (serverDir, mouse, date, scene, scene, sess))
+
     if len(info_file)==0:
         #raise Exception("file doesn't exist")
         return None, None
@@ -224,7 +230,9 @@ def build_2P_filename(mouse,date,scene,sess,serverDir = "G:\\My Drive\\2P_Data\\
         return results_file[0], info_file[0]
 
 def build_VR_filename(mouse,date,scene,session,serverDir = "G:\\My Drive\\VR_Data\\TwoTower"):
-    file=glob("%s\\%s\\%s\\%s_%s.sqlite" % (serverDir, mouse, date, scene, session))
+    fname = os.path.join(serverDir,mouse,date,"%s_%s.sqlite" % (scene,session))
+    #file=glob("%s\\%s\\%s\\%s_%s.sqlite" % (serverDir, mouse, date, scene, session))
+    file=glob(fname)
     if len(file)==1:
         return file[0]
     else:
@@ -487,23 +495,24 @@ def avg_by_morph(morphs,pcnt):
 
 
 
-def load_session_db():
-    conn = sql.connect("G:\\My Drive\\VR_Data\\TwoTower\\behavior.sqlite")
+def load_session_db(dir = "G:\\My Drive\\VR_Data\\TwoTower"):
+    fname = os.path.join(dir,"behavior.sqlite")
+    conn = sql.connect(fname)
     df = pd.read_sql("SELECT MouseName, DateFolder, SessionNumber,Track, RewardCount, Imaging FROM sessions",conn)
     df['DateTime'] = [datetime.strptime(s,'%d_%m_%Y') for s in df['DateFolder']]
     df['data file'] = [ build_VR_filename(df['MouseName'].iloc[i],
                                            df['DateFolder'].iloc[i],
                                            df['Track'].iloc[i],
-                                           df['SessionNumber'].iloc[i]) for i in range(df.shape[0])]
+                                           df['SessionNumber'].iloc[i],serverDir=dir) for i in range(df.shape[0])]
     choose_first, choose_second = lambda x: x[0], lambda x: x[1]
     df['scanfile'] = [choose_first(build_2P_filename(df['MouseName'].iloc[i],
                                         df['DateFolder'].iloc[i],
                                         df['Track'].iloc[i],
-                                        df['SessionNumber'].iloc[i])) for i in range(df.shape[0])]
+                                        df['SessionNumber'].iloc[i],serverDir=dir)) for i in range(df.shape[0])]
     df['scanmat'] = [choose_second(build_2P_filename(df['MouseName'].iloc[i],
                                         df['DateFolder'].iloc[i],
                                         df['Track'].iloc[i],
-                                        df['SessionNumber'].iloc[i])) for i in range(df.shape[0])]
+                                        df['SessionNumber'].iloc[i],serverDir=dir)) for i in range(df.shape[0])]
     conn.close()
     return df
 
