@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import os
 from glob import glob as glb
 import scipy as sp
+
 import scipy.stats as stats
 from scipy.ndimage.filters import gaussian_filter
 import json
@@ -55,11 +56,8 @@ class process_data:
     def __init__(self,mouse,sessions):
 
 
-        if basedir == "home":
-            basestr = "/Volumes/mplitt/VR/" + exp + "/" + mouse + "/"
-            #basestr = "/Users/mplitt/Dropbox/tmpVRDat/" +mouse + "/"
-        elif basedir == "work":
-            basestr = "Z:/VR/" + exp + "/" + mouse + "\\"
+
+        basestr = "Z:/VR/" + exp + "/" + mouse + "\\"
 
         else:
             raise Exception("Invalid basedir!..options are 'home' or 'work' ")

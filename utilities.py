@@ -300,6 +300,51 @@ def _VR_align_to_2P(frame,infofile, n_imaging_planes = 1):
 
     return ca_df
 
+def _VR_interp(frame):
+
+    fr = 30
+
+    vr_time = frame['time']._values
+    vr_time = vr_time - vr_time[0]
+    ca_time = np.arange(0,vr_time[-1],1/fr)
+    ca_df = pd.DataFrame(columns = frame.columns,index=np.arange(ca_time.shape[0]))
+
+    ca_df['time'] = ca_time
+
+    f_mean = sp.interpolate.interp1d(vr_time,frame['pos']._values,axis=0,kind='slinear')
+    ca_df['pos'] = f_mean(ca_time)
+
+    near_list = ['morph','clickOn','towerJitter','wallJitter','bckgndJitter']
+    f_nearest = sp.interpolate.interp1d(vr_time,frame[near_list]._values,axis=0,kind='nearest')
+    ca_df[near_list] = f_nearest(ca_time)
+
+    cumsum_list = ['dz','lick','reward','tstart','teleport']
+
+    f_cumsum = sp.interpolate.interp1d(vr_time,np.cumsum(frame[cumsum_list]._values,axis=0),axis=0,kind='slinear')
+    ca_cumsum = np.round(np.insert(f_cumsum(ca_time),0,[0,0, 0 ,0,0],axis=0))
+    if ca_cumsum[-1,-1]<ca_cumsum[-1,-2]:
+        ca_cumsum[-1,-1]+=1
+    #ca_df[cumsum_list].iloc[1:-underhang+1]=np.diff(ca_cumsum,axis=0
+
+    ca_df[cumsum_list] = np.diff(ca_cumsum,axis=0)
+
+    ca_df.fillna(method='ffill',inplace=True)
+    k = Gaussian1DKernel(5)
+    cum_dz = convolve(np.cumsum(ca_df['dz']._values),k,boundary='extend')
+    ca_df['dz'] = np.ediff1d(cum_dz,to_end=0)
+
+
+    ca_df['speed'].interpolate(method='linear',inplace=True)
+    ca_df['speed']=np.array(np.divide(ca_df['dz'],np.ediff1d(ca_df['time'],to_begin=1./fr)))
+    ca_df['speed'].iloc[0]=0
+
+    # ca_df['speed'] = convolve(ca_df['speed']._values,k,boundary='extend')
+    ca_df['lick rate'] = np.array(np.divide(ca_df['lick'],np.ediff1d(ca_df['time'],to_begin=1./fr)))
+    ca_df['lick rate'] = convolve(ca_df['lick rate']._values,k,boundary='extend')
+    ca_df[['reward','tstart','teleport','lick','clickOn','towerJitter','wallJitter','bckgndJitter']].fillna(value=0,inplace=True)
+
+    return ca_df
+
 def _get_frame(f,fix_teleports=True):
     sess_conn = sql.connect(f)
     frame = pd.read_sql('''SELECT time, pos, dz, morph, lick, reward, tstart, teleport, clickOn, towerJitter
@@ -341,10 +386,10 @@ def behavior_dataframe(filenames,scanmats=None,concat = True, sig=10):
 
     if scanmats is None:
         if isinstance(filenames,list):
-            frames = [_get_frame(f) for f in filenames]
+            frames = [_VR_interp(_get_frame(f)) for f in filenames]
             df = pd.concat(frames,ignore_index=True)
         else:
-            df = _get_frame(filenames)
+            df = _VR_interp(_get_frame(filenames))
         df['trial number'] = np.cumsum(df['teleport'])
 
         if isinstance(filenames,list):
@@ -375,27 +420,72 @@ def behavior_dataframe(filenames,scanmats=None,concat = True, sig=10):
                 return frames
         else:
             return df
+# percent correct
+def by_trial_info(data,rzone0=(250,315),rzone1=(350,415)):
+    tstart_inds, teleport_inds = data.index[data.tstart==1],data.index[data.teleport==1]
+    #print(tstart_inds.shape[0],teleport_inds.shape[0])
+    trial_info={}
+    morphs = np.zeros([tstart_inds.shape[0],])
+    max_pos = np.zeros([tstart_inds.shape[0]])
+    rewards = np.zeros([tstart_inds.shape[0]])
+    zone0_licks = np.zeros([tstart_inds.shape[0]])
+    zone1_licks = np.zeros([tstart_inds.shape[0]])
+    zone0_speed = np.zeros([tstart_inds.shape[0]])
+    zone1_speed = np.zeros([tstart_inds.shape[0]])
+    pcnt = np.zeros([tstart_inds.shape[0]]); pcnt[:] = np.nan
+    wallJitter= np.zeros([tstart_inds.shape[0]])
+    towerJitter= np.zeros([tstart_inds.shape[0]])
+    bckgndJitter= np.zeros([tstart_inds.shape[0]])
+    clickOn= np.zeros([tstart_inds.shape[0]])
+    for (i,(s,f)) in enumerate(zip(tstart_inds,teleport_inds)):
+        sub_frame = data[s:f]
+        m, counts = sp.stats.mode(sub_frame['morph'],nan_policy='omit')
+        morphs[i] = m
+        max_pos[i] = np.nanmax(sub_frame['pos'])
+        rewards[i] = np.nansum(sub_frame['reward'])
+        zone0_mask = (sub_frame.pos>=rzone0[0]) & (sub_frame.pos<=rzone0[1])
+        zone1_mask = (sub_frame.pos>=rzone1[0]) & (sub_frame.pos<=rzone1[1])
+        zone0_licks[i] = np.nansum(sub_frame.loc[zone0_mask,'lick'])
+        zone1_licks[i] = np.nansum(sub_frame.loc[zone1_mask,'lick'])
+        zone0_speed[i]=np.nanmean(sub_frame.loc[zone0_mask,'speed'])
+        zone1_speed[i] = np.nanmean(sub_frame.loc[zone1_mask,'speed'])
+        wj, c = sp.stats.mode(sub_frame['wallJitter'],nan_policy='omit')
+        wallJitter[i] = wj
+        tj, c = sp.stats.mode(sub_frame['towerJitter'],nan_policy='omit')
+        towerJitter[i] = tj
+        bj, c = sp.stats.mode(sub_frame['bckgndJitter'],nan_policy='omit')
+        bckgndJitter = bj
+        co, c = sp.stats.mode(sub_frame['clickOn'],nan_policy='omit')
+        clickOn[i]=co
+        if m<.5:
+            if rewards[i]>0 and max_pos[i]>rzone1[1]:
+                pcnt[i] = 0
+            elif max_pos[i]<rzone1[1]:
+                pcnt[i]=1
+        elif m>.5:
+            if rewards[i]>0:
+                pcnt[i] = 1
+            elif max_pos[i]<rzone1[0]:
+                pcnt[i] = 0
+        elif m == .5:
+            if zone0_licks[i]>0:
+                pcnt[i] = 0
+            elif zone1_licks[i]>0:
+                pcnt[i]=1
+    trial_info = {'morphs':morphs,'max_pos':max_pos,'rewards':rewards,'zone0_licks':zone0_licks,'zone1_licks':zone1_licks,'zone0_speed':zone0_speed,
+                 'zone1_speed':zone1_speed,'pcnt':pcnt,'wallJitter':wallJitter,'towerJitter':towerJitter,'bckgndJitter':bckgndJitter,'clickOn':clickOn}
+    return trial_info
+
+def avg_by_morph(morphs,pcnt):
+    morphs_u = np.unique(morphs)
+    pcnt_mean = np.zeros([morphs_u.shape[0]])
+    for i,m in enumerate(morphs_u):
+        pcnt_mean[i] = np.nanmean(pcnt[morphs==m])
+    return pcnt_mean
 
 
-def smooth_raster(x,mat,ax=None,smooth=False,sig=2,vals=None):
-    if ax is None:
-        f,ax = plt.subplots
 
-    if smooth:
-        k = Gaussian1DKernel(5)
-        for i in range(mat.shape[0]):
-            mat[i,:] = convolve(mat[i,:],k,boundary='extend')
 
-    for ind,i in enumerate(np.arange(mat.shape[0]-1,0,-1)):
-        if vals is not None:
-            ax.fill_between(x,mat[ind,:]+i,y2=i,color=plt.cm.cool(np.float(vals[ind])),linewidth=.01)
-        else:
-            ax.fill_between(x,mat[ind,:]+i,y2=i,color = 'black',linewidth=.01)
-    #ax.set_y
-    ax.set_yticks(np.arange(0,mat.shape[0],10))
-    ax.set_yticklabels(["%d" % l for l in np.arange(mat.shape[0],0,-10).tolist()])
-
-    return ax
 
 def load_session_db():
     conn = sql.connect("G:\\My Drive\\VR_Data\\TwoTower\\behavior.sqlite")
@@ -416,6 +506,26 @@ def load_session_db():
                                         df['SessionNumber'].iloc[i])) for i in range(df.shape[0])]
     conn.close()
     return df
+
+def smooth_raster(x,mat,ax=None,smooth=False,sig=2,vals=None):
+    if ax is None:
+        f,ax = plt.subplots
+
+    if smooth:
+        k = Gaussian1DKernel(5)
+        for i in range(mat.shape[0]):
+            mat[i,:] = convolve(mat[i,:],k,boundary='extend')
+
+    for ind,i in enumerate(np.arange(mat.shape[0]-1,0,-1)):
+        if vals is not None:
+            ax.fill_between(x,mat[ind,:]+i,y2=i,color=plt.cm.cool(np.float(vals[ind])),linewidth=.001)
+        else:
+            ax.fill_between(x,mat[ind,:]+i,y2=i,color = 'black',linewidth=.001)
+    #ax.set_y
+    ax.set_yticks(np.arange(0,mat.shape[0],10))
+    ax.set_yticklabels(["%d" % l for l in np.arange(mat.shape[0],0,-10).tolist()])
+
+    return ax
 
 def lick_plot(d,bin_edges,rzone0=(250.,315),rzone1=(350,415),smooth=True,ratio = True):
 
@@ -474,3 +584,26 @@ def lick_plot(d,bin_edges,rzone0=(250.,315),rzone1=(350,415),smooth=True,ratio =
                 axis.spines[edge].set_visible(False)
 
         return f, (ax, meanlr_ax)
+
+def plot_speed(x,d,vals,ax=None,f=None,rzone0=(250,315),rzone1=(350,415)):
+    if ax is None:
+        f, ax = plt.subplots(1,2,figsize=[10,5])
+    for i,m in enumerate(np.unique(vals)):
+        for j in range(d[m].shape[0]):
+            tmp = ax[0].plot(x,d[m][j,:],color = plt.cm.cool(np.float(m)),alpha=.1)
+        tmp = ax[0].plot(x,np.nanmean(d[m],axis=0),color=plt.cm.cool(np.float(m)),zorder=1)
+        tmp = ax[1].plot(x,np.nanmean(d[m],axis=0),color=plt.cm.cool(np.float(m)))
+
+    ax[0].axvspan(rzone0[0],rzone0[1],alpha=.2,color=plt.cm.cool(np.float(0)),zorder=0)
+    ax[0].axvspan(rzone1[0],rzone1[1],alpha=.2,color=plt.cm.cool(np.float(1)),zorder=0)
+    ax[1].axvspan(rzone0[0],rzone0[1],alpha=.2,color=plt.cm.cool(np.float(0)),zorder=0)
+    ax[1].axvspan(rzone1[0],rzone1[1],alpha=.2,color=plt.cm.cool(np.float(1)),zorder=0)
+    for edge in ['top','right']:
+        ax[0].spines[edge].set_visible(False)
+        ax[1].spines[edge].set_visible(False)
+
+    ax[0].set_xlabel('Position')
+    ax[0].set_ylabel('Speed cm/s')
+    ax[0].set_ylim([0, 100])
+    ax[1].set_ylim([0, 100])
+    return f,ax
