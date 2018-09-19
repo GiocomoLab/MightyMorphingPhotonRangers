@@ -26,16 +26,16 @@ def run_analyses(saveFigs = True):
     for i in range(df.shape[0]):
         try:
             sess = df.iloc[i]
-            try:
-                print(os.path.join(serverDir,sess['MouseName']))
-                os.makedirs(os.path.join(serverDir,sess['MouseName']))
-            except:
-                print("make dirs failed")
-                pass
+            #try:
+            #    print(os.path.join(serverDir,sess['MouseName']))
+            #    os.makedirs(os.path.join(serverDir,sess['MouseName']))
+            #except:
+            #    print("make dirs failed")
+            #    pass
             fbase = os.path.join(serverDir,sess['MouseName'])
             filestr = "%s_%s_%d" % (sess['DateFolder'] , sess["Track"], sess["SessionNumber"])
-
-            data_TO = run_behavior(sess,save=True,fbase=fbase,filestr=filestr)
+            print(filestr)
+            data_TO = run_behavior(sess,save=False,fbase=fbase,filestr=filestr)
 
             # load calcium data
             info = loadmat_sbx(sess['scanmat'])['info']
@@ -54,26 +54,26 @@ def run_analyses(saveFigs = True):
             S_smooth = gaussian_filter1d(S,3,axis=0)
 
             # C
-            pcs = run_PCA(C,data_TO,save=True,fbase=fbase,filestr=filestr+"_C")
+            pcs = run_PCA(C_z,data_TO,save=True,fbase=fbase,filestr=filestr+"_C_z")
             #s
-            pcs_s = run_PCA(S_smooth,data_TO,save=True,fbase=fbase,filestr=filestr+"_S_smooth")
+            #pcs_s = run_PCA(S_z_smooth,data_TO,save=True,fbase=fbase,filestr=filestr+"_S_smooth")
 
 
-            run_placecells(C,data_TO,save=True,fbase=fbase,filestr=filestr)
+            #run_placecells(C,data_TO,save=True,fbase=fbase,filestr=filestr)
 
             # C
-            simmats = run_simmat(C,data_TO,save=True,fbase=fbase,filestr=filestr+"_C")
+            simmats = run_simmat(C_z,data_TO,save=True,fbase=fbase,filestr=filestr+"_C_z")
             #s
-            simmats_s= run_simmat(S_smooth,data_TO,save=True,fbase=fbase,filestr=filestr+"_S_smooth")
+            #simmats_s= run_simmat(S_smooth,data_TO,save=True,fbase=fbase,filestr=filestr+"_S_smooth")
         except:
-            pass
+            print(i)
     return
 
 
 
-def run_behavior(data_TO,save=False,fbase = None, filestr = None, ratio = False):
+def run_behavior(sess,save=False,fbase = None, filestr = None, ratio = False):
     '''make behavior plots'''
-    #data_TO = behavior_dataframe(sess['data file'],sess['scanmat'],concat=False)
+    data_TO = behavior_dataframe(sess['data file'],sess['scanmat'],concat=False)
     trial_mat, bin_edges, bin_centers = make_pos_bin_trial_matrices(data_TO[['speed','morph','lick rate','reward','lick']]._values,
                                               data_TO['pos']._values,
                                               data_TO['tstart']._values,
@@ -330,6 +330,28 @@ def run_simmat(C,data_TO,save=False,fbase = None,filestr=None):
     #ax.set_xlim([0,frmap.shape[0]*i])
     #ax.set_ylim([0,frmap.shape[0]*i])
 
+    edges = np.arange(0,frmap.shape[0]*morphs.shape[0]+1,frmap.shape[0])
+    cm_sim = np.zeros([morphs.shape[0],morphs.shape[0]])
+    cm_sim_norm = np.zeros([morphs.shape[0],morphs.shape[0]])
+    for k,(start,stop) in enumerate(zip(edges[:-1],edges[1:])):
+        for l, (sstart,sstop) in enumerate(zip(edges[:-1],edges[1:])):
+            tmp = np.nanmean(simmat[start:stop,sstart:sstop])
+            cm_sim[k,l] = tmp
+            cm_sim_norm[k,l] = tmp
+
+    for z in range(cm_sim.shape[0]):
+        cm_sim_norm[z,:]/=cm_sim_norm[z,z]
+    f_cm, ax_cm = plt.subplots(figsize=[5,5])
+    ax_cm.imshow(cm_sim,aspect='auto',cmap='magma')
+    ax_cm.spines['top'].set_visible(False)
+    ax_cm.spines['right'].set_visible(False)
+
+    f_cm_n, ax_cm_n = plt.subplots(figsize=[5,5])
+    ax_cm_n.imshow(cm_sim_norm,aspect='auto',cmap='magma')
+    ax_cm_n.spines['top'].set_visible(False)
+    ax_cm_n.spines['right'].set_visible(False)
+
+
 
 
     if save:
@@ -338,7 +360,11 @@ def run_simmat(C,data_TO,save=False,fbase = None,filestr=None):
         except:
             pass
 
-        f.savefig(os.path.join(fbase,'simmat',filestr+".pdf"),format='pdf')
+        f.savefig(os.path.join(fbase,'simmat',filestr+".png"),format='png')
         f.savefig(os.path.join(fbase,'simmat',filestr+".svg"),format='svg')
+        f_cm.savefig(os.path.join(fbase,'simmat',filestr+"_cm.png"),format='png')
+        f_cm.savefig(os.path.join(fbase,'simmat',filestr+"_cm.svg"),format='svg')
+        f_cm_n.savefig(os.path.join(fbase,'simmat',filestr+"_cm_n.png"),format='png')
+        f_cm_n.savefig(os.path.join(fbase,'simmat',filestr+"_cm_n.svg"),format='svg')
 
-    return simmat
+    return simmat, cm_sim, cm_sim_norm
