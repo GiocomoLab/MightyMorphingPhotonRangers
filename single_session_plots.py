@@ -17,7 +17,7 @@ from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 
 
 
-def run_analyses(saveFigs = True):
+def run_analyses_all_sessions(saveFigs = True):
     df = load_session_db()
     df = df[df['RewardCount']>10]
     df = df[df['Imaging']==1]
@@ -276,13 +276,13 @@ def run_placecells(C,data_TO,save=False,fbase = None,filestr=None):
         fr_0_norm = np.copy(fr_0)
 
 
-        ax[0,i].imshow(fr_0_norm.T,aspect='auto',cmap='magma')#
+        ax[0,i].imshow(fr_0_norm.T,aspect='auto',cmap='Greys')#
 
 
         fr_1 = frmap_norm[:,p1_mask]
         fr_1_norm = np.copy(fr_1)
 
-        ax[1,i].imshow(fr_1_norm.T,aspect='auto',cmap='magma')
+        ax[1,i].imshow(fr_1_norm.T,aspect='auto',cmap='Greys')
 
 
     if save:
@@ -295,7 +295,7 @@ def run_placecells(C,data_TO,save=False,fbase = None,filestr=None):
         f.savefig(os.path.join(fbase,'placecells',filestr+".svg"),format='svg')
 
 
-    return
+    return f, ax, mask0, mask1
 
 
 def run_simmat(C,data_TO,save=False,fbase = None,filestr=None):
