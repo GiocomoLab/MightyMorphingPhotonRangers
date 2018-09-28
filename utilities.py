@@ -16,8 +16,6 @@ import os.path
 from astropy.convolution import convolve, Gaussian1DKernel
 
 
-
-
 def spatial_info(frmap,occupancy):
     '''calculate spatial information bits/spike'''
     ncells = frmap.shape[1]
@@ -25,7 +23,9 @@ def spatial_info(frmap,occupancy):
     SI = []
     #p_map = np.zeros(frmap.shape)
     for i in range(ncells):
-        p_map = gaussian_filter(frmap[:,i],2)/frmap[:,i].sum()
+        p_map = gaussian_filter(frmap[:,i],2)
+        p_map /= p_map.sum()
+        #p_map = gaussian_filter(frmap[:,i],2)/frmap[:,i].sum()
         #p_map = np.squeeze(frmap[:,i]/frmap[:,i].sum())
         denom = np.multiply(p_map,occupancy).sum()
         #print(denom)
@@ -59,11 +59,54 @@ def rate_map(C,position,bin_size=10,min_pos = 0, max_pos=450):
             occupancy[i] = np.where((position>edge1) & (position<=edge2))[0].shape[0]
         else:
             pass
-    return frmap, occupancy #/occupancy.ravel().sum()
+    return frmap, occupancy/occupancy.ravel().sum()
+
+
+def place_cells_split_halves(C, position, trial_info, tstart_inds, teleport_inds):
+    '''get masks for significant place cells that have significant place info
+    in both even and odd trials'''
+
+    C_trial_mat, occ_trial_mat, edges,centers = make_pos_bin_trial_matrices(C,position,tstart_inds,teleport_inds)
+    C_morph_dict = trial_type_dict(C_trial_mat,trial_info['morphs'])
+    occ_morph_dict = trial_type_dict(occ_trial_mat,trial_info['morphs'])
+    tstart_inds, teleport_inds = np.where(tstart_inds==1)[0], np.where(teleport_inds==1)[0]
+    tstart_morph_dict = trial_type_dict(tstart_inds,trial_info['morphs'])
+    teleport_morph_dict = trial_type_dict(teleport_inds,trial_info['morphs'])
+
+    # for each morph value
+    FR,masks,SI = {}, {}, {}
+    for m in [0, 1]:
+
+        FR[m]= {}
+        SI[m] = {}
+
+        # firing rate maps
+        FR[m]['all'] = np.nanmean(C_morph_dict[m],axis=0)
+        FR[m]['odd'] = np.nanmean(C_morph_dict[m][0::2,:,:],axis=0)
+        FR[m]['even'] = np.nanmean(C_morph_dict[m][1::2,:,:],axis=0)
+
+        # occupancy
+        occ_o, occ_e = occ_morph_dict[m][0::2,:].sum(axis=0), occ_morph_dict[m][1::2,:].sum(axis=0)
+        occ_o/=occ_o.sum()
+        occ_e/=occ_e.sum()
+        occ_all = occ_morph_dict[m].sum(axis=0)
+        occ_all /= occ_all.sum()
+
+        SI[m]['all'] =  spatial_info(FR[m]['all'],occ_all)
+        SI[m]['odd'] = spatial_info(FR[m]['odd'],occ_o)
+        SI[m]['even'] = spatial_info(FR[m]['even'],occ_e)
+
+
+        p_e, shuffled_SI = spatial_info_perm_test(SI[m]['even'],C,position,tstart_morph_dict[m],teleport_morph_dict[m],nperms=100)
+        p_o, shuffled_SI = spatial_info_perm_test(SI[m]['odd'],C,position,tstart_morph_dict[m],teleport_morph_dict[m],shuffled_SI=shuffled_SI)
+
+        masks[m]=np.multiply(p_e>.95,p_o<.95)
+
+    return masks, FR, SI
 
 
 
-def spatial_info_perm_test(SI,C,position,nperms = 10000,shuffled_SI=None):
+def spatial_info_perm_test(SI,C,position,tstart,tstop,nperms = 10000,shuffled_SI=None):
     '''run permutation test on spatial information calculations. returns empirical p-values for each cell'''
     if len(C.shape)>2:
         C = np.expand_dims(C,1)
@@ -72,12 +115,16 @@ def spatial_info_perm_test(SI,C,position,nperms = 10000,shuffled_SI=None):
         shuffled_SI = np.zeros([nperms,C.shape[1]])
 
         for perm in range(nperms):
-            pos_perm = np.roll(position,randrange(position.shape[0]))
-            fr,occ = rate_map(C,pos_perm,bin_size=5)
-
+            #C_perm = np.roll(C,randrange(position.shape[0]),axis=0)
+            C_tmat, occ_tmat, edes,centers = make_pos_bin_trial_matrices(C,position,tstart,tstop,perm=True)
+            fr, occ = np.squeeze(np.nanmean(C_tmat,axis=0)), occ_tmat.sum(axis=0)
+            occ/=occ.sum()
+            #pos_perm = np.roll(position,randrange(position.shape[0]))
+            #fr,occ = rate_map(C,pos_perm,bin_size=5)
+            #fr, occ = rate_map(C_perm,position,bin_size=5)
             si = spatial_info(fr,occ)
             shuffled_SI[perm,:] = si
-    print(np.where(shuffled_SI<0))
+
 
     p = np.zeros([C.shape[1],])
     for cell in range(C.shape[1]):
@@ -88,9 +135,16 @@ def spatial_info_perm_test(SI,C,position,nperms = 10000,shuffled_SI=None):
     return p, shuffled_SI
 
 
-def make_pos_bin_trial_matrices(arr, pos, tstart, tstop,method = 'mean',bin_size=5):
+def make_pos_bin_trial_matrices(arr, pos, tstart, tstop,method = 'mean',bin_size=5,perm=False):
     '''make a ntrials x position x neurons tensor'''
-    ntrials = np.sum(tstart)
+    if tstart.max()<=1: # if binary, leaving in for backwards compatibility
+        tstart_inds, tstop_inds = np.where(tstart==1)[0],np.where(tstop==1)[0]
+        ntrials = np.sum(tstart)
+    else:
+        tstart_inds, tstop_inds = tstart, tstop
+        ntrials = tstart.shape[0]
+
+    #ntrials = np.sum(tstart)
     bin_edges = np.arange(0,450+bin_size,bin_size)
     bin_centers = bin_edges[:-1]+bin_size/2
     bin_edges = bin_edges.tolist()
@@ -103,12 +157,16 @@ def make_pos_bin_trial_matrices(arr, pos, tstart, tstop,method = 'mean',bin_size
     trial_mat = np.zeros([int(ntrials),len(bin_edges)-1,arr.shape[1]])
     trial_mat[:] = np.nan
     occ_mat = np.zeros([int(ntrials),len(bin_edges)-1])
-    tstart_inds, tstop_inds = np.where(tstart==1)[0],np.where(tstop==1)[0]
+
+
+
     for trial in range(int(ntrials)):
 
             firstI, lastI = tstart_inds[trial], tstop_inds[trial]
-            #print(arr[firstI:lastI])
-            map, occ = rate_map(arr[firstI:lastI,:],pos[firstI:lastI],bin_size=bin_size)
+            arr_t,pos_t = arr[firstI:lastI,:], pos[firstI:lastI]
+            if perm:
+                pos_t = np.roll(pos_t,np.random.randint(pos_t.shape[0]))
+            map, occ = rate_map(arr_t,pos_t,bin_size=bin_size)
             trial_mat[trial,:,:] = map
             occ_mat[trial,:] = occ
             #print(map.ravel())
