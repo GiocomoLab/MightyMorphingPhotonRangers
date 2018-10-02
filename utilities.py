@@ -8,7 +8,7 @@ from random import randrange
 import sqlite3 as sql
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-from scipy.ndimage.filters import gaussian_filter
+from scipy.ndimage.filters import gaussian_filter, gaussian_filter1d
 import pandas as pd
 from datetime import datetime
 from glob import glob
@@ -25,10 +25,8 @@ def spatial_info(frmap,occupancy):
     for i in range(ncells):
         p_map = gaussian_filter(frmap[:,i],2)
         p_map /= p_map.sum()
-        #p_map = gaussian_filter(frmap[:,i],2)/frmap[:,i].sum()
-        #p_map = np.squeeze(frmap[:,i]/frmap[:,i].sum())
         denom = np.multiply(p_map,occupancy).sum()
-        #print(denom)
+
 
         si = 0
         for c in range(frmap.shape[0]):
@@ -134,6 +132,33 @@ def spatial_info_perm_test(SI,C,position,tstart,tstop,nperms = 10000,shuffled_SI
 
     return p, shuffled_SI
 
+def plot_placecells(C_morph_dict,masks):
+    '''plot place place cell results'''
+
+    morphs = [k for k in C_morph_dict.keys() if isinstance(k,np.float64)]
+    f,ax = plt.subplots(2,len(morphs),figsize=[5*len(morphs),15])
+
+    getSort = lambda fr : np.argsort(np.argmax(np.squeeze(np.nanmean(fr,axis=0)),axis=0))
+    sort0 = getSort(C_morph_dict[0][:,:,masks[0]])
+    print(masks[0].shape,sort0.shape)
+    #print(sort0)
+    sort1 = getSort(C_morph_dict[1][:,:,masks[1]])
+
+    for i,m in enumerate(morphs):
+        fr = np.squeeze(np.nanmean(C_morph_dict[m],axis=0))
+        fr_n = np.copy(fr)
+        for j in range(fr.shape[1]):
+            fr_n[:,j] = gaussian_filter1d(fr[:,j]/fr[:,j].max(),2)
+            #fr_n[:,j] = gaussian_filter1d(fr[:,j],2)
+        fr_n0, fr_n1 = fr_n[:,masks[0]], fr_n[:,masks[1]]
+        fr_n0, fr_n1 = fr_n0[:,sort0], fr_n1[:,sort1]
+        ax[0,i].imshow(fr_n0.T,aspect='auto',cmap='Greys')
+        ax[1,i].imshow(fr_n1.T,aspect='auto',cmap='Greys')
+
+    return f, ax
+
+
+
 
 def make_pos_bin_trial_matrices(arr, pos, tstart, tstop,method = 'mean',bin_size=5,perm=False):
     '''make a ntrials x position x neurons tensor'''
@@ -175,6 +200,8 @@ def make_pos_bin_trial_matrices(arr, pos, tstart, tstop,method = 'mean',bin_size
 
 def cnmf_com(A,d1,d2,d3):
     '''returns center of mass of cells given spatial footprints and native dimensions'''
+
+
     pass
     # return centers
 

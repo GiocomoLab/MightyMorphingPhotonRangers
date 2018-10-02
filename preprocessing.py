@@ -55,15 +55,20 @@ def _todict(matobj):
     return dict
 
 
-def load_ca_mat(fname):
+def load_ca_mat(fname,fov = [512,796]):
     """load results from cnmf"""
 
     ca_dat = {}
     try:
         with h5py.File(fname,'r') as f:
+            C = np.array(f['C_keep'])
+
             for k,v in f.items():
                 try:
-                    ca_dat[k] = np.array(v)
+                    if k=='A_keep':
+                        ca_dat[k] = sp.sparse.csc_matrix((f[k]['data'],f[k]['ir'],f[k]['jc']),shape=[fov[0]*fov[1],C.shape[1]])
+                    else:
+                        ca_dat[k] = np.array(v)
                 except:
                     print(k + "not made into numpy array")
                     ca_dat[k]=v
@@ -85,7 +90,7 @@ def load_scan_sess(sess):
     frame_diff = VRDat.shape[0]-C.shape[0]
     if frame_diff>0:
         VRDat = VRDat.iloc[:-frame_diff]
-    return VRDat,C
+    return VRDat,C, ca_dat['A_keep']
 
 def load_session_db(dir = "G:\\My Drive\\"):
     '''open the sessions sqlite database and add some columns'''
