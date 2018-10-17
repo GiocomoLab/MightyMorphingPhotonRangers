@@ -13,19 +13,20 @@ import pandas as pd
 # for each mouse
 os.chdir('Z:\VR\TwoTower')
 mice = [p.replace('\\','') for p in glob('*/')]
+mice = ['4139212.2','4139212.4','4139219.2','4139219.3']
 #print(mice)
-sess_connect = sql.connect("Z:\\VR\\TwoTower\\behavior.sqlite")
+sess_connect = sql.connect("G:\\My Drive\\VR_Data\\TwoTower\\behavior.sqlite") #"Z:\\VR\\TwoTower\\behavior.sqlite")
 sess_c = sess_connect.cursor()
 
 for mouse in mice:
     #print(mouse)
     # find all files with *Licks*.txt
-    os.chdir("Z:\\VR\TwoTower\%s" % mouse)
+    os.chdir("G:\\My Drive\\VR_Data\\TwoTower\\%s" % mouse)
     date_folders = [p.replace('\\','') for p in glob('*/')]
 
     for ds in date_folders:
         #print(ds)
-        os.chdir("Z:\\VR\TwoTower\%s\%s" % (mouse,ds))
+        os.chdir("G:\\My Drive\\VR_Data\\TwoTower\\%s\%s" % (mouse,ds))
         db_files = glob('*.sqlite')
         for s in db_files:
             # find integer in string
@@ -39,7 +40,7 @@ for mouse in mice:
             # num is second
             num = int(num_str)
             # load sql database as pandas dataframe
-            conn = sql.connect("Z:\\VR\TwoTower\%s\%s\%s" % (mouse,ds,s))
+            conn = sql.connect("G:\\My Drive\\VR_Data\\TwoTower\\%s\%s\%s" % (mouse,ds,s))
             curs = conn.cursor()
             curs.execute("select name from sqlite_master where type='table';")
             print(curs.fetchall())
@@ -53,8 +54,8 @@ for mouse in mice:
     # check if imaging file exists
 
 
-            print("Z:\\2P_data\TwoTower\%s\%s\%s\%s_*%s_*.mat" % (mouse,ds,parts[0],parts[0],parts[1][1:]))
-            matFiles = glob("Z:\\2P_data\TwoTower\%s\%s\%s\%s_*%s_*.mat" % (mouse,ds,parts[0],parts[0],parts[1][1:]))
+            print("G:\\My Drive\\2P_Data\\TwoTower\%s\%s\%s\%s_*%s_*.mat" % (mouse,ds,parts[0],parts[0],parts[1][1:]))
+            matFiles = glob("G:\\My Drive\\2P_Data\\TwoTower\\%s\%s\%s\%s_*%s_*.mat" % (mouse,ds,parts[0],parts[0],parts[1][1:]))
 
             if len(matFiles)>0:
                 imaging = 1

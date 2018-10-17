@@ -16,31 +16,6 @@ import os.path
 from astropy.convolution import convolve, Gaussian1DKernel
 
 
-def spatial_info(frmap,occupancy):
-    '''calculate spatial information bits/spike'''
-    ncells = frmap.shape[1]
-
-    SI = []
-    #p_map = np.zeros(frmap.shape)
-    for i in range(ncells):
-        p_map = gaussian_filter(frmap[:,i],2)
-        p_map /= p_map.sum()
-        denom = np.multiply(p_map,occupancy).sum()
-
-
-        si = 0
-        for c in range(frmap.shape[0]):
-            if (p_map[c]<0) or (occupancy[c]<0):
-                print("we have a problem")
-            if (p_map[c] >= 0) and (occupancy[c]>=0):
-                #print(p_map[c],denom,np.log2(p_map[c]/denom))
-
-                si+= occupancy[c]*p_map[c]*np.log2(p_map[c]/denom)
-            #print(p_)
-
-        SI.append(si)
-
-    return np.array(SI)
 
 
 def rate_map(C,position,bin_size=10,min_pos = 0, max_pos=450):
@@ -58,105 +33,6 @@ def rate_map(C,position,bin_size=10,min_pos = 0, max_pos=450):
         else:
             pass
     return frmap, occupancy/occupancy.ravel().sum()
-
-
-def place_cells_split_halves(C, position, trial_info, tstart_inds, teleport_inds):
-    '''get masks for significant place cells that have significant place info
-    in both even and odd trials'''
-
-    C_trial_mat, occ_trial_mat, edges,centers = make_pos_bin_trial_matrices(C,position,tstart_inds,teleport_inds)
-    C_morph_dict = trial_type_dict(C_trial_mat,trial_info['morphs'])
-    occ_morph_dict = trial_type_dict(occ_trial_mat,trial_info['morphs'])
-    tstart_inds, teleport_inds = np.where(tstart_inds==1)[0], np.where(teleport_inds==1)[0]
-    tstart_morph_dict = trial_type_dict(tstart_inds,trial_info['morphs'])
-    teleport_morph_dict = trial_type_dict(teleport_inds,trial_info['morphs'])
-
-    # for each morph value
-    FR,masks,SI = {}, {}, {}
-    for m in [0, 1]:
-
-        FR[m]= {}
-        SI[m] = {}
-
-        # firing rate maps
-        FR[m]['all'] = np.nanmean(C_morph_dict[m],axis=0)
-        FR[m]['odd'] = np.nanmean(C_morph_dict[m][0::2,:,:],axis=0)
-        FR[m]['even'] = np.nanmean(C_morph_dict[m][1::2,:,:],axis=0)
-
-        # occupancy
-        occ_o, occ_e = occ_morph_dict[m][0::2,:].sum(axis=0), occ_morph_dict[m][1::2,:].sum(axis=0)
-        occ_o/=occ_o.sum()
-        occ_e/=occ_e.sum()
-        occ_all = occ_morph_dict[m].sum(axis=0)
-        occ_all /= occ_all.sum()
-
-        SI[m]['all'] =  spatial_info(FR[m]['all'],occ_all)
-        SI[m]['odd'] = spatial_info(FR[m]['odd'],occ_o)
-        SI[m]['even'] = spatial_info(FR[m]['even'],occ_e)
-
-
-        p_e, shuffled_SI = spatial_info_perm_test(SI[m]['even'],C,position,tstart_morph_dict[m],teleport_morph_dict[m],nperms=100)
-        p_o, shuffled_SI = spatial_info_perm_test(SI[m]['odd'],C,position,tstart_morph_dict[m],teleport_morph_dict[m],shuffled_SI=shuffled_SI)
-
-        masks[m]=np.multiply(p_e>.95,p_o<.95)
-
-    return masks, FR, SI
-
-
-
-def spatial_info_perm_test(SI,C,position,tstart,tstop,nperms = 10000,shuffled_SI=None):
-    '''run permutation test on spatial information calculations. returns empirical p-values for each cell'''
-    if len(C.shape)>2:
-        C = np.expand_dims(C,1)
-
-    if shuffled_SI is None:
-        shuffled_SI = np.zeros([nperms,C.shape[1]])
-
-        for perm in range(nperms):
-            #C_perm = np.roll(C,randrange(position.shape[0]),axis=0)
-            C_tmat, occ_tmat, edes,centers = make_pos_bin_trial_matrices(C,position,tstart,tstop,perm=True)
-            fr, occ = np.squeeze(np.nanmean(C_tmat,axis=0)), occ_tmat.sum(axis=0)
-            occ/=occ.sum()
-            #pos_perm = np.roll(position,randrange(position.shape[0]))
-            #fr,occ = rate_map(C,pos_perm,bin_size=5)
-            #fr, occ = rate_map(C_perm,position,bin_size=5)
-            si = spatial_info(fr,occ)
-            shuffled_SI[perm,:] = si
-
-
-    p = np.zeros([C.shape[1],])
-    for cell in range(C.shape[1]):
-        #print(SI[cell],np.max(shuffled_SI[:,cell]))
-        #p[cell] = np.where(SI[cell]>shuffled_SI[:,cell])[0].shape[0]/nperms
-        p[cell] = np.sum(SI[cell]>shuffled_SI[:,cell])/nperms
-
-    return p, shuffled_SI
-
-def plot_placecells(C_morph_dict,masks):
-    '''plot place place cell results'''
-
-    morphs = [k for k in C_morph_dict.keys() if isinstance(k,np.float64)]
-    f,ax = plt.subplots(2,len(morphs),figsize=[5*len(morphs),15])
-
-    getSort = lambda fr : np.argsort(np.argmax(np.squeeze(np.nanmean(fr,axis=0)),axis=0))
-    sort0 = getSort(C_morph_dict[0][:,:,masks[0]])
-    print(masks[0].shape,sort0.shape)
-    #print(sort0)
-    sort1 = getSort(C_morph_dict[1][:,:,masks[1]])
-
-    for i,m in enumerate(morphs):
-        fr = np.squeeze(np.nanmean(C_morph_dict[m],axis=0))
-        fr_n = np.copy(fr)
-        for j in range(fr.shape[1]):
-            fr_n[:,j] = gaussian_filter1d(fr[:,j]/fr[:,j].max(),2)
-            #fr_n[:,j] = gaussian_filter1d(fr[:,j],2)
-        fr_n0, fr_n1 = fr_n[:,masks[0]], fr_n[:,masks[1]]
-        fr_n0, fr_n1 = fr_n0[:,sort0], fr_n1[:,sort1]
-        ax[0,i].imshow(fr_n0.T,aspect='auto',cmap='Greys')
-        ax[1,i].imshow(fr_n1.T,aspect='auto',cmap='Greys')
-
-    return f, ax
-
 
 
 

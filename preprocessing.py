@@ -61,11 +61,14 @@ def load_ca_mat(fname,fov = [512,796]):
     ca_dat = {}
     try:
         with h5py.File(fname,'r') as f:
-            C = np.array(f['C_keep'])
+            try:
+                C = np.array(f['C'])
+            except:
+                C = np.array(f['C_keep'])
 
             for k,v in f.items():
                 try:
-                    if k=='A_keep':
+                    if k in ('A_keep', 'A'):
                         ca_dat[k] = sp.sparse.csc_matrix((f[k]['data'],f[k]['ir'],f[k]['jc']),shape=[fov[0]*fov[1],C.shape[1]])
                     else:
                         ca_dat[k] = np.array(v)
@@ -90,7 +93,11 @@ def load_scan_sess(sess):
     frame_diff = VRDat.shape[0]-C.shape[0]
     if frame_diff>0:
         VRDat = VRDat.iloc[:-frame_diff]
-    return VRDat,C, ca_dat['A_keep']
+
+    if 'A_keep' in ca_dat.keys():
+        return VRDat,C, ca_dat['A_keep']
+    elif 'A' in ca_dat.keys():
+        return VRDat,C, ca_dat['A']
 
 def load_session_db(dir = "G:\\My Drive\\"):
     '''open the sessions sqlite database and add some columns'''
@@ -119,7 +126,7 @@ def load_session_db(dir = "G:\\My Drive\\"):
 def build_2P_filename(mouse,date,scene,sess,serverDir = "G:\\My Drive\\2P_Data\\TwoTower\\"):
     ''' use sessions database inputs to build appropriate filenames for 2P data'''
 
-    results_fname = os.path.join(serverDir,mouse,date,scene,"%s_*%s_*_cnmf_results_pre.mat" % (scene,sess))
+    results_fname = os.path.join(serverDir,mouse,date,scene,"%s_*%s_*_cnmf_results.mat" % (scene,sess))
     results_file=glob(results_fname)
     info_fname = os.path.join(serverDir,mouse,date,scene,"%s_*%s_*.mat" % (scene,sess))
     info_file = glob(info_fname)
@@ -155,6 +162,7 @@ def _VR_align_to_2P(frame,infofile, n_imaging_planes = 1):
     caInds = np.array([int(i/n_imaging_planes) for i in info['frame']])
 
     numCaFrames = caInds[-1]-caInds[0]+1
+    print(numCaFrames)
     fr = info['resfreq']/info['recordsPerBuffer']
 
     frame = frame.iloc[-numVRFrames:]
@@ -167,13 +175,14 @@ def _VR_align_to_2P(frame,infofile, n_imaging_planes = 1):
     vr_time = frame['time']._values
     vr_time = vr_time - vr_time[0]
 
-    ca_time = np.arange(0,np.min([ca_df['time'].iloc[-1], vr_time[-1]]),1/fr)
+    ca_time = np.arange(0,np.min([ca_df['time'].iloc[-1], vr_time[-1]])+.001,1/fr)
     underhang = int(np.round((1/fr*numCaFrames-ca_time[-1])*fr))
+    #print(ca_df['time'].iloc[-1],ca_time[-1],vr_time[-1],ca_time.shape)
 
     #print(ca_df.iloc[:-underhang+1].shape)
     #f_mean = sp.interpolate.interp1d(vr_time,frame[['pos','dz']]._values,axis=0,kind='slinear')
     f_mean = sp.interpolate.interp1d(vr_time,frame['pos']._values,axis=0,kind='slinear')
-    #print(f_mean(ca_time).shape)
+    #print(ca_time.shape,ca_df.shape)
     ca_df.loc[ca_df.time<=vr_time[-1],'pos'] = f_mean(ca_time)
 
     near_list = ['morph','clickOn','towerJitter','wallJitter','bckgndJitter']
