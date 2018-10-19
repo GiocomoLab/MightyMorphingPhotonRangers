@@ -89,7 +89,10 @@ def load_scan_sess(sess):
     info = loadmat_sbx(sess['scanmat'])['info']
     ca_dat = load_ca_mat(sess['scanfile'])
 
-    C = ca_dat['C_dec'][info['frame'][0]:info['frame'][-1]+1]
+    C = ca_dat['C'][info['frame'][0]:info['frame'][-1]+1]
+    Cd = ca_dat['C_dec'][info['frame'][0]:info['frame'][-1]+1]
+    #print(ca_dat.keys())
+    S = ca_dat['S_dec'][info['frame'][0]:info['frame'][-1]+1]
     frame_diff = VRDat.shape[0]-C.shape[0]
     if frame_diff>0:
         VRDat = VRDat.iloc[:-frame_diff]
@@ -97,7 +100,7 @@ def load_scan_sess(sess):
     if 'A_keep' in ca_dat.keys():
         return VRDat,C, ca_dat['A_keep']
     elif 'A' in ca_dat.keys():
-        return VRDat,C, ca_dat['A']
+        return VRDat,C,Cd, S, ca_dat['A']
 
 def load_session_db(dir = "G:\\My Drive\\"):
     '''open the sessions sqlite database and add some columns'''
@@ -130,8 +133,6 @@ def build_2P_filename(mouse,date,scene,sess,serverDir = "G:\\My Drive\\2P_Data\\
     results_file=glob(results_fname)
     info_fname = os.path.join(serverDir,mouse,date,scene,"%s_*%s_*.mat" % (scene,sess))
     info_file = glob(info_fname)
-    #results_file=glob("%s\\%s\\%s\\%s\\%s_*%s_*_cnmf_results_pre.mat" % (serverDir, mouse, date, scene, scene, sess))
-    #info_file = glob("%s\\%s\\%s\\%s\\%s_*%s_*.mat" % (serverDir, mouse, date, scene, scene, sess))
 
     if len(info_file)==0:
         #raise Exception("file doesn't exist")

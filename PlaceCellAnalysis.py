@@ -15,9 +15,10 @@ import matplotlib.gridspec as gridspec
 
 
 
-def single_session(sess):
+def single_session(sess, C= None, VRDat = None, A=None):
     # load calcium data and aligned vr
-    VRDat, C, A = pp.load_scan_sess(sess)
+    if (C is not None) and (VRDat is not None) and (A is not None):
+        VRDat, C, Cd, S, A = pp.load_scan_sess(sess)
 
     # get trial by trial info
     trial_info, tstart_inds, teleport_inds = u.by_trial_info(VRDat)
