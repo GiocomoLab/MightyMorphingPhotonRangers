@@ -1,6 +1,78 @@
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+import numpy as np
+import scipy as sp
+from scipy.ndimage.filters import gaussian_filter1d
+import os
+os.sys.path.append('../')
+from astropy.convolution import convolve, Gaussian1DKernel
+import utilities as u
+
+
+def learning_curve_plots(data):
+
+    if isinstance(dat,list):
+        N = len(data)
+    else:
+        N = 1
+        data = [data]
+
+
+    f_pcntcorr,ax_pcntcorr = plt.subplots(figsize=[5,5])
+    f_lp,ax_lp = plt.subplots(figsize=[5,5])
+    f_sess, ax_sess = plt.subplots(figsize=[5,5])
+    pcnt0, pcnt1 = [], []
+    for i,d in enumerate(data):
+
+        trial_mat, bin_edges, bin_centers = u.make_pos_bin_trial_matrices(d[['speed','morph','lick rate','reward','lick']]._values,
+                                                      d['pos']._values,
+                                                      d['tstart']._values,
+                                                      d['teleport']._values,bin_size=5)
+
+
+        # plot licking behavior
+        trial_info = u.by_trial_info(data_TO)
+        pcnt_mean = u.avg_by_morph(trial_info['morphs'],trial_info['pcnt'])
+
+        pcnt0.append(pcnt_mean[0])
+        pcnt1.append(pcnt_mean[-1])
+        ax_sess.scatter(i*np.ones(pcnt_mean.shape),pcnt_mean,c=np.sort(np.unique(trial_info['morphs']),s=5,cmap='winter')
+
+       # morph_vals = np.arange(0,1.25,.25)
+        ax_pcntcorr.plot(np.sort(np.unique(morph_vec)),pcnt_mean,color=plt.cm.copper(i/float(N)))
+        #ax.plot(morph_vals,pcnt_mean_post,color='red')
+        ax_pcntcorr.set_ylabel("P(licked at second tower)")
+        ax_pcntcorr.set_xlabel("morph")
+        ax_pcntcorr.set_ylim([0,1])
+        ax_pcntcorr.spines['top'].set_visible(False)
+        ax_pcntcorr.spines['right'].set_visible(False)
+        ax_pcntcorr.set_title(mouse)
 
 
 
+        licknans = np.isnan(trial_info['pos_lick']) & (trial_info['max_pos']<450) & (trial_info['max_pos']>245)
+        trial_info['pos_lick'][licknans]=trial_info['max_pos'][licknans]
+         #position of first lick
+        pos_lick = u.avg_by_morph(trial_info['morphs'],trial_info['pos_lick'])
+
+        ax_lp.plot(np.sort(np.unique(morph_vec)),pos_lick,color=plt.cm.copper(i/float(N)))
+        #ax_lp.scatter(trial_info['morphs'],trial_info['pos_lick'],color=plt.cm.copper(i/float(N)),s=5)
+        ax_lp.set_ylabel("cm/s")
+        ax_lp.set_xlabel("morph")
+        ax_lp.set_title("position of first lick")
+        ax_lp.spines['top'].set_visible(False)
+        ax_lp.spines['right'].set_visible(False)
+
+    ax_sess.plot(np.arange(i+1),pcnt0,color=plt.cm.winter(0.))
+    ax_sess.plot(np.arange(i+1),pcnt1,color=plt.cm.winter(1.))
+    ax_sess.set_xlabel('Session Number')
+    ax_sess.set_ylabel('P(lick at second tower)')
+    ax_sess.set_title(mouse)
+    ax_sess.spines['top'].set_visible(False)
+    ax_sess.spines['right'].set_visible(False)
+    ax_sess.set_ylim([0,1])
+
+    return (f_sess,ax_sess), (f_pcntcorr, ax_pcntcorr), (f_lp, ax_lp)
 
 def lick_plot(d,bin_edges,rzone0=(250.,315),rzone1=(350,415),smooth=True,ratio = True):
     '''standard plot for licking behavior'''
