@@ -42,13 +42,14 @@ def single_session(sess, C= None, VRDat = None, zscore = True, spikes = False, n
 
     ax_U[1].imshow(U_rnorm,cmap='Greys')
 
-    return S, U, U_norm, (f,ax_S), (f_U, ax_U)
+    return S, U, U_rnorm, (f,ax_S), (f_U, ax_U)
 
 
 def plot_simmat(S,m):
     f,ax = plt.subplots(1,1, figsize=[m*5,m*5])
     # m = number of morphs
     N = S.shape[0]
+    print(m,step)
     step = int(N/m)
     e = np.arange(step,N+1,step)
 
@@ -74,31 +75,33 @@ def morph_mean_simmat(S,m):
     edges[:,0], edges[:,1] = e[:-1], e[1:]
     for i in range(m):
         for j in range(m):
-            U[i,j] = S[edges[i,0]:edges[i,1],edges[j,0]:edges[j,1]].ravel().mean()
+            U[i,j] = S[int(edges[i,0]):int(edges[i,1]),int(edges[j,0]):int(edges[j,1])].ravel().mean()
 
     # normalize to make identity 1
     U_rnorm = np.zeros(U.shape)
     for z in range(U.shape[0]):
-        U_rnorm[z,:] = U/U[z,z]
+        U_rnorm[z,:] = U[z,:]/U[z,z]
 
-    return U, U_norm
+    return U, U_rnorm
 
 def morph_simmat(C_morph_dict, normalize = False):
     X = morph_by_cell_mat(C_morph_dict,normalize=normalize)
     return np.matmul(X.T,X)
 
 def morph_by_cell_mat(C_morph_dict,normalize = False):
+    k = 0
     for i,m in enumerate(C_morph_dict.keys()):
 
-        if m not in ('all','labels'):
-            print(m, C_morph_dict[m].keys())
+        if m not in ('all','labels','indices'):
+            #print(m, C_morph_dict[m].keys())
             # firing rate maps
             fr = np.nanmean(C_morph_dict[m],axis=0)
             if normalize:
                 for j in range(fr.shape[1]):
                     fr[:,j] = fr[:,j]/fr[:,j].sum()
 
-            if i == 0:
+            if k == 0:
+                k+=1
                 X = fr.T
             else:
                 print(X.shape,fr.shape)
