@@ -32,7 +32,7 @@ def single_session(sess, C= None, VRDat = None, zscore = True, spikes = False, n
     C_morph_dict = u.trial_type_dict(C_trial_mat,trial_info['morphs'])
 
     S = morph_simmat(C_morph_dict, normalize = normalize)
-    m = len(C_morph_dict.keys())
+    m = len(C_morph_dict.keys())-3
     U, U_rnorm = morph_mean_simmat(S,m)
 
     f_S,ax_S = plot_simmat(S,m)
@@ -42,14 +42,14 @@ def single_session(sess, C= None, VRDat = None, zscore = True, spikes = False, n
 
     ax_U[1].imshow(U_rnorm,cmap='Greys')
 
-    return S, U, U_rnorm, (f,ax_S), (f_U, ax_U)
+    return S, U, U_rnorm, (f_S,ax_S), (f_U, ax_U)
 
 
 def plot_simmat(S,m):
     f,ax = plt.subplots(1,1, figsize=[m*5,m*5])
     # m = number of morphs
     N = S.shape[0]
-    print(m,step)
+
     step = int(N/m)
     e = np.arange(step,N+1,step)
 

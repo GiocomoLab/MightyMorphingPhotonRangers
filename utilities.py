@@ -60,7 +60,8 @@ def make_pos_bin_trial_matrices(arr, pos, tstart, tstop,method = 'mean',bin_size
     occ_mat = np.zeros([int(ntrials),len(bin_edges)-1])
 
 
-
+    #print(int(ntrials),tstart_inds.shape,tstop_inds.shape)
+    print(tstart_inds[[0,1,-1]],tstop_inds[[0,1,-1]])
     for trial in range(int(ntrials)):
 
             firstI, lastI = tstart_inds[trial], tstop_inds[trial]
@@ -241,13 +242,13 @@ def avg_by_morph(morphs,mat):
 
 
 
-def smooth_raster(x,mat,ax=None,smooth=False,sig=2,vals=None):
+def smooth_raster(x,mat,ax=None,smooth=False,sig=2,vals=None,tports=None):
     '''plot mat ( ntrials x len(x)) as a smoothed histogram'''
     if ax is None:
         f,ax = plt.subplots
 
     if smooth:
-        k = Gaussian1DKernel(5)
+        k = Gaussian1DKernel(sig)
         for i in range(mat.shape[0]):
             mat[i,:] = convolve(mat[i,:],k,boundary='extend')
 
@@ -256,6 +257,9 @@ def smooth_raster(x,mat,ax=None,smooth=False,sig=2,vals=None):
             ax.fill_between(x,mat[ind,:]+i,y2=i,color=plt.cm.cool(np.float(vals[ind])),linewidth=.001)
         else:
             ax.fill_between(x,mat[ind,:]+i,y2=i,color = 'black',linewidth=.001)
+
+        if tports is not None:
+            ax.scatter(tports[ind],i+.5,color='red',marker='o',s=50)
     #ax.set_y
     ax.set_yticks(np.arange(0,mat.shape[0],10))
     ax.set_yticklabels(["%d" % l for l in np.arange(mat.shape[0],0,-10).tolist()])

@@ -278,6 +278,10 @@ def _get_frame(f,fix_teleports=True):
         pos = frame['pos']._values
         teleport_inds = np.where(np.ediff1d(pos,to_end=0)<=-50)[0]
         tstart_inds = np.append([0],teleport_inds[:-1]+1)
+
+        if teleport_inds.shape[0]<tstart_inds.shape[0]:
+            teleport_inds = np.append(teleport_inds,pos.shape[0]-1)
+
         for ind in range(tstart_inds.shape[0]):  # for teleports
             while (pos[tstart_inds[ind]]<0) or (pos[tstart_inds[ind]]>5) : # while position is negative
                 if tstart_inds[ind] < pos.shape[0]-1: # if you haven't exceeded the vector length
