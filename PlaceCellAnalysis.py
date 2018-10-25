@@ -17,7 +17,7 @@ import matplotlib.gridspec as gridspec
 
 def single_session(sess, C= None, VRDat = None, A=None):
     # load calcium data and aligned vr
-    if (C is not None) and (VRDat is not None) and (A is not None):
+    if (C is None) and (VRDat is None) and (A is None):
         VRDat, C, Cd, S, A = pp.load_scan_sess(sess)
 
     # get trial by trial info
@@ -70,7 +70,7 @@ def single_session(sess, C= None, VRDat = None, A=None):
     none = np.where((masks[0]==0) & (masks[1]==0))[0]
     m0 = np.where((masks[0]==1) & (masks[1]==0))[0]
     m1 = np.where((masks[0]==0) & (masks[1]==1))[0]
-    tvals = np.zeros([ca_dat['A_keep'].shape[1],])
+    tvals = np.zeros([A.shape[1],])
     tvals[both]=.01
     tvals[m0]=-1
     tvals[m1]=1
@@ -118,12 +118,12 @@ def reward_cell_scatterplot(fr0, fr1, rzone0 = [250,315], rzone1 = [350,415],tma
     ax.fill_betweenx(np.arange(tmax),rzone1[0],x2=rzone1[1],color=plt.cm.cool(1.),alpha=.2)
 
     ax1 = f.add_subplot(gs[-1,0:-1])
-    ax1.hist(5.*np.argmax(FR_0_cpc,axis=0),np.arange(0,tmax+10,10))
+    ax1.hist(5.*np.argmax(fr0,axis=0),np.arange(0,tmax+10,10))
     ax1.fill_betweenx(np.arange(40),rzone0[0],x2=rzone0[1],color=plt.cm.cool(0),alpha=.2)
     ax1.fill_betweenx(np.arange(40),rzone1[0],x2=rzone1[1],color=plt.cm.cool(1.),alpha=.2)
 
     ax2 = f.add_subplot(gs[0:-1,-1])
-    ax2.hist(5.*np.argmax(FR_1_cpc,axis=0),np.arange(0,tmax+10,10),orientation='horizontal')
+    ax2.hist(5.*np.argmax(fr1,axis=0),np.arange(0,tmax+10,10),orientation='horizontal')
     ax2.fill_between(np.arange(40),rzone0[0],y2=rzone0[1],color=plt.cm.cool(0),alpha=.2)
     ax2.fill_between(np.arange(40),rzone1[0],y2=rzone1[1],color=plt.cm.cool(1.),alpha=.2)
 

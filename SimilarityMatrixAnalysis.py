@@ -16,13 +16,14 @@ import matplotlib.gridspec as gridspec
 def single_session(sess, C= None, VRDat = None, zscore = True, spikes = False, normalize = False):
     '''calculate similarity matrices, average within the morphs and plot results'''
     # load calcium data and aligned vr
-    if (C is not None) and (VRDat is not None) and (A is not None):
+    if (C is None) or (VRDat is None) or (A is None):
         VRDat, C, Cd, S, A = pp.load_scan_sess(sess)
 
     if spikes:
         C = gaussian_filter1d(S,3,axis=0)
 
     if zscore:
+        print(C.shape)
         Cz = sp.stats.zscore(C,axis=0)
 
     # get trial by trial info
@@ -88,15 +89,19 @@ def morph_simmat(C_morph_dict, normalize = False):
 
 def morph_by_cell_mat(C_morph_dict,normalize = False):
     for i,m in enumerate(C_morph_dict.keys()):
-        # firing rate maps
-        fr = np.nanmean(C_morph_dict[m],axis=0)
-        if normalize:
-            for j in range(fr.shape[1]):
-                fr[:,j] = fr[:,j]/fr[:,j].sum()
 
-        if i == 0:
-            X = fr.T
-        else:
-            X = np.hstack((X,fr.T))
+        if m not in ('all','labels'):
+            print(m, C_morph_dict[m].keys())
+            # firing rate maps
+            fr = np.nanmean(C_morph_dict[m],axis=0)
+            if normalize:
+                for j in range(fr.shape[1]):
+                    fr[:,j] = fr[:,j]/fr[:,j].sum()
+
+            if i == 0:
+                X = fr.T
+            else:
+                print(X.shape,fr.shape)
+                X = np.hstack((X,fr.T))
 
     return X
