@@ -28,6 +28,7 @@ def single_session(sess, C= None, VRDat = None, zscore = True, spikes = False, n
 
     # get trial by trial info
     trial_info, tstart_inds, teleport_inds = u.by_trial_info(VRDat)
+    print("sim script",tstart_inds.shape,teleport_inds.shape)
     C_trial_mat, occ_trial_mat, edges,centers = u.make_pos_bin_trial_matrices(C,VRDat['pos']._values,VRDat['tstart']._values,VRDat['teleport']._values)
     C_morph_dict = u.trial_type_dict(C_trial_mat,trial_info['morphs'])
 

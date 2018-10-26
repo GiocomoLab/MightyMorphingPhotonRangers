@@ -94,6 +94,7 @@ def load_scan_sess(sess):
     #print(ca_dat.keys())
     S = ca_dat['S_dec'][info['frame'][0]:info['frame'][-1]+1]
     frame_diff = VRDat.shape[0]-C.shape[0]
+    print('frame diff',frame_diff)
     if frame_diff>0:
         VRDat = VRDat.iloc[:-frame_diff]
 
@@ -194,11 +195,14 @@ def _VR_align_to_2P(frame,infofile, n_imaging_planes = 1):
 
     f_cumsum = sp.interpolate.interp1d(vr_time,np.cumsum(frame[cumsum_list]._values,axis=0),axis=0,kind='slinear')
     ca_cumsum = np.round(np.insert(f_cumsum(ca_time),0,[0,0, 0 ,0,0],axis=0))
+    print('cumsum',ca_cumsum[-1,:])
     if ca_cumsum[-1,-1]<ca_cumsum[-1,-2]:
         ca_cumsum[-1,-1]+=1
+    print('cumsum',ca_cumsum[-1,:])
     #ca_df[cumsum_list].iloc[1:-underhang+1]=np.diff(ca_cumsum,axis=0
 
     ca_df.loc[ca_df.time<=vr_time[-1],cumsum_list] = np.diff(ca_cumsum,axis=0)
+    print('df sum', ca_df.tstart.sum(),ca_df.teleport.sum())
 
     ca_df.fillna(method='ffill',inplace=True)
     k = Gaussian1DKernel(5)
@@ -276,10 +280,14 @@ def _get_frame(f,fix_teleports=True):
     if fix_teleports:
         tstart_inds_vec,teleport_inds_vec = np.zeros([frame.shape[0],]), np.zeros([frame.shape[0],])
         pos = frame['pos']._values
+        pos[pos<-50] = -50
         teleport_inds = np.where(np.ediff1d(pos,to_end=0)<=-50)[0]
         tstart_inds = np.append([0],teleport_inds[:-1]+1)
+        print(tstart_inds.shape,teleport_inds.shape)
+
 
         if teleport_inds.shape[0]<tstart_inds.shape[0]:
+            print("catch")
             teleport_inds = np.append(teleport_inds,pos.shape[0]-1)
 
         for ind in range(tstart_inds.shape[0]):  # for teleports
@@ -292,13 +300,15 @@ def _get_frame(f,fix_teleports=True):
                     break
 
         tstart_inds_vec = np.zeros([frame.shape[0],])
+        print('fix teleports',frame.shape,tstart_inds.shape,teleport_inds.shape)
         tstart_inds_vec[tstart_inds] = 1
 
         teleport_inds_vec = np.zeros([frame.shape[0],])
         teleport_inds_vec[teleport_inds] = 1
+        print('fix teleports post sub',teleport_inds_vec.sum(),tstart_inds_vec.sum())
         frame['teleport']=teleport_inds_vec
         frame['tstart']=tstart_inds_vec
-
+        print('frame fill',frame.teleport.sum(),frame.tstart.sum())
 
     return frame
 
