@@ -258,7 +258,7 @@ def plot_placecells(C_morph_dict,masks):
 
     getSort = lambda fr : np.argsort(np.argmax(np.squeeze(np.nanmean(fr,axis=0)),axis=0))
     sort0 = getSort(C_morph_dict[0][:,:,masks[0]])
-    print(masks[0].shape,sort0.shape)
+    #print(masks[0].shape,sort0.shape)
     #print(sort0)
     sort1 = getSort(C_morph_dict[1][:,:,masks[1]])
 

@@ -44,7 +44,7 @@ def make_pos_bin_trial_matrices(arr, pos, tstart, tstop,method = 'mean',bin_size
     else:
         tstart_inds, tstop_inds = tstart, tstop
         ntrials = tstart.shape[0]
-    print(tstart_inds.shape,tstop_inds.shape)
+    #print(tstart_inds.shape,tstop_inds.shape)
 
     #ntrials = np.sum(tstart)
     bin_edges = np.arange(0,450+bin_size,bin_size)
@@ -62,7 +62,7 @@ def make_pos_bin_trial_matrices(arr, pos, tstart, tstop,method = 'mean',bin_size
 
 
     #print(int(ntrials),tstart_inds.shape,tstop_inds.shape)
-    print(tstart_inds[[0,1,-1]],tstop_inds[[0,1,-1]])
+    #print(tstart_inds[[0,1,-1]],tstop_inds[[0,1,-1]])
     for trial in range(int(ntrials)):
 
             firstI, lastI = tstart_inds[trial], tstop_inds[trial]
@@ -157,7 +157,7 @@ def trial_type_dict(mat,type_vec):
 def by_trial_info(data,rzone0=(250,315),rzone1=(350,415)):
     '''get abunch of single trial behavioral information and save it in a dictionary'''
     tstart_inds, teleport_inds = data.index[data.tstart==1],data.index[data.teleport==1]
-    print('by trial func', tstart_inds.shape,teleport_inds.shape)
+    #print('by trial func', tstart_inds.shape,teleport_inds.shape)
     #print(tstart_inds.shape[0],teleport_inds.shape[0])
     trial_info={}
     morphs = np.zeros([tstart_inds.shape[0],])

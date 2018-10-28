@@ -98,32 +98,7 @@ def transition_prob_matrix(x,binsize=5):
         XX[next_inds,b] = bcount/bcount.sum()
     return XX, bin_edges
 
-def forward_procedure_single_cell(XX_I0,XX_I1,L_I0,L_I1,II):
-    '''calculate likelihood of data using forwad procedure. assuming equally
-    likely to start in either context and probability that you start at the beginning
-    of the track is 1'''
-
-    alpha = np.zeros([XX_I0.shape[0],II.shape[0]])
-    alpha[0,:] = .5
-
-
-    for t in range(L_I0.shape[1]):
-        la0 = np.multiply(L_I0[:,t],alpha[:,0])
-        xla0 = np.dot(XX_I0,la0)
-
-        la1 = np.multiply(L_I1[:,t],alpha[:,1])
-        xla1 = np.dot(XX_I1,la1)
-
-
-        A = np.zeros([II.shape[0],XX_I0.shape[0]])
-        A[0,:] = xla0
-        A[1,:] = xla1
-
-        alpha = np.dot(II,A).T
-
-    return alpha.ravel().sum()
-
-def decoding_model(trial_C_z,XX_I0,XX_I1,mu_i0,mu_i1,alpha,beta,morphs):
+def decoding_model(trial_C_z,XX_I0,XX_I1,mu_i0,mu_i1,morphs):
 
     # allocate for single cell data
     post_i0x_y, post_i1x_y= [],[]
@@ -134,7 +109,7 @@ def decoding_model(trial_C_z,XX_I0,XX_I1,mu_i0,mu_i1,alpha,beta,morphs):
     pop_post_i0, pop_post_i1 = [], []
 
     for trial,I  in enumerate(morphs):
-        a,b  = alpha[trial,:], beta[trial,:]
+        #a,b  = alpha[trial,:], beta[trial,:]
         #print(a.shape)
         if trial%5==0:
             print("processing trial %d" % trial)
@@ -177,12 +152,8 @@ def decoding_model(trial_C_z,XX_I0,XX_I1,mu_i0,mu_i1,alpha,beta,morphs):
                 ZZ1_t = ttmp1/ttmp_denom
 
             ######## single cell decoding
-            # alpha is trial x cell
-            A = np.matlib.repmat(a[np.newaxis],XX_I0.shape[0],1)
-            #print(A.shape,Z0_t.shape)
-            B = np.matlib.repmat(b[np.newaxis],XX_I1.shape[0],1)
-            XZ0 = np.dot(XX_I0,np.multiply(A,Z0_t)) + np.dot(XX_I1,np.multiply(1-A,Z1_t))
-            XZ1 = np.dot(XX_I0,np.multiply(1-B,Z0_t)) + np.dot(XX_I1,np.multiply(B,Z1_t))
+            XZ0 = np.dot(XX_I0,Z0_t)
+            XZ1 = np.dot(XX_I0,Z0_t)
 
             # make activity into a matrix and means at each position into a matrix in order to calculate likelihoods
             CZX = np.matlib.repmat(cz[j,:],mu_i0.shape[0],1)
@@ -211,37 +182,20 @@ def decoding_model(trial_C_z,XX_I0,XX_I1,mu_i0,mu_i1,alpha,beta,morphs):
             post_trial1.append(Z1_t)
 
 
-            # ######## population decoding
-            XXZZ0 = np.dot(XX_I0,1*ZZ0_t) + np.dot(XX_I1,(1-1)*ZZ1_t)
-            XXZZ1 = np.dot(XX_I0,(1-1)*ZZ0_t) + np.dot(XX_I1,1*ZZ1_t)
-
-            # make activity into a matrix and means at each position into a matrix in order to calculate likelihoods
-            CCZZXX = np.matlib.repmat(cz[j,:],mu_i0.shape[0],1)
-
-            #calculate likelihoods as a function of binned position
-            ll0 = gaussian_pdf(CCZZXX,mu_i0,1)
-            ll1 = gaussian_pdf(CCZZXX,mu_i1,1)
-
-            # normalize from binning
-            ddenom = np.matlib.repmat(ll0.sum(axis=0) + ll1.sum(axis=0),mu_i0.shape[0],1)
-            ll0 = np.divide(ll0,ddenom)
-            ll1 = np.divide(ll1,ddenom)
-
-
             # population log-likelihood of current activity as a function of position
-            log_L0 = np.log(ll0).sum(axis=1)
-            log_L1 = np.log(ll1).sum(axis=1)
+            log_L0 = np.log(l0).sum(axis=1)
+            log_L1 = np.log(l1).sum(axis=1)
 
             # numerator of new posterior
             # first calculate in log space
-            log_tmpnum0 = log_L0 + np.squeeze(np.log(XXZZ0))
+            log_tmpnum0 = log_L0 + np.squeeze(np.log(XZ0))
             # bring back to values that won't overflow
             log_tmpnum0 -= log_tmpnum0.max()-1
             # back to normal space
             ttmpnum0 = np.exp(log_tmpnum0)
 
             # repeat
-            log_tmpnum1 = log_L1 + np.squeeze(np.log(XXZZ1))
+            log_tmpnum1 = log_L1 + np.squeeze(np.log(XZ1))
             log_tmpnum1 -= log_tmpnum1.max()-1
             ttmpnum1 = np.exp(log_tmpnum1)
 
