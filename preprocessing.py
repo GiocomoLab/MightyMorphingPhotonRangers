@@ -138,6 +138,10 @@ def build_2P_filename(mouse,date,scene,sess,serverDir = "G:\\My Drive\\2P_Data\\
 
     results_fname = os.path.join(serverDir,mouse,date,scene,"%s_*%s_*_cnmf_results.mat" % (scene,sess))
     results_file=glob(results_fname)
+    if len(results_file)==0:
+        results_fname = os.path.join(serverDir,mouse,date,scene,"%s_*%s_*_cnmf_results_pre.mat" % (scene,sess))
+        results_file=glob(results_fname)
+
     info_fname = os.path.join(serverDir,mouse,date,scene,"%s_*%s_*.mat" % (scene,sess))
     info_file = glob(info_fname)
 

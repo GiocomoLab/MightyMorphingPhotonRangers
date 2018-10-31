@@ -15,7 +15,7 @@ import matplotlib.gridspec as gridspec
 
 
 
-def single_session(sess, C= None, VRDat = None, A=None):
+def single_session(sess, C= None, VRDat = None, A=None,savefigs = False,fbase=None):
     # load calcium data and aligned vr
     if (C is None) and (VRDat is None) and (A is None):
         VRDat, C, Cd, S, A = pp.load_scan_sess(sess)
@@ -80,6 +80,13 @@ def single_session(sess, C= None, VRDat = None, A=None):
     # place field width
 
     # place cell reliability
+
+    if savefigs:
+        f_pc.savefig(fbase+"_pc.pdf",format = 'pdf')
+        f_pc.savefig(fbase+"_pc.svg",format = 'svg')
+
+        f_rc.savefig(fbase+"_rc.pdf",format = 'pdf')
+        f_rc.savefig(fbase+"_rc.svg",format = 'svg')
 
 
     return FR, masks, SI

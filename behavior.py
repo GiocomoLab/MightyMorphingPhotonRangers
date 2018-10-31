@@ -4,9 +4,10 @@ import numpy as np
 import scipy as sp
 from scipy.ndimage.filters import gaussian_filter1d
 import os
-os.sys.path.append('../')
+os.sys.path.append("C:\\Users\mplitt\MightyMorphingPhotonRangers")
 from astropy.convolution import convolve, Gaussian1DKernel
 import utilities as u
+
 
 
 def learning_curve_plots(data):
