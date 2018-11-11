@@ -89,7 +89,10 @@ def load_scan_sess(sess):
     info = loadmat_sbx(sess['scanmat'])['info']
     ca_dat = load_ca_mat(sess['scanfile'])
 
-    C = ca_dat['C'][info['frame'][0]-1:info['frame'][-1]]
+    try:
+        C = ca_dat['C'][info['frame'][0]-1:info['frame'][-1]]
+    except:
+        C = ca_dat['C_keep'][info['frame'][0]-1:info['frame'][-1]]
     #print('C', C.shape)
     #print('repeat num ca frames', info['frame'][-1]-info['frame'][0]+1)
     #print('first last index',info['frame'][0],info['frame'][-1])
@@ -105,7 +108,7 @@ def load_scan_sess(sess):
         VRDat = VRDat.iloc[:-frame_diff]
 
     if 'A_keep' in ca_dat.keys():
-        return VRDat,C, ca_dat['A_keep']
+        return VRDat,C,Cd,S, ca_dat['A_keep']
     elif 'A' in ca_dat.keys():
         return VRDat,C,Cd, S, ca_dat['A']
 
@@ -114,7 +117,7 @@ def load_session_db(dir = "G:\\My Drive\\"):
 
     vr_fname = os.path.join(dir,"VR_Data","TwoTower","behavior.sqlite")
     conn = sql.connect(vr_fname)
-    df = pd.read_sql("SELECT MouseName, DateFolder, SessionNumber,Track, RewardCount, Imaging FROM sessions",conn)
+    df = pd.read_sql("SELECT MouseName, DateFolder, SessionNumber,Track, RewardCount, Imaging, ImagingRegion FROM sessions",conn)
     df['DateTime'] = [datetime.strptime(s,'%d_%m_%Y') for s in df['DateFolder']]
     df['data file'] = [ build_VR_filename(df['MouseName'].iloc[i],
                                            df['DateFolder'].iloc[i],
@@ -189,14 +192,14 @@ def _VR_align_to_2P(frame,infofile, n_imaging_planes = 1):
     vr_time = frame['time']._values
     vr_time = vr_time - vr_time[0]
 
-    ca_time = np.arange(0,np.min([ca_df['time'].iloc[-1], vr_time[-1]])+.001,1/fr)
+    ca_time = np.arange(0,np.min([ca_df['time'].iloc[-1], vr_time[-1]])+.0001,1/fr)
     underhang = int(np.round((1/fr*numCaFrames-ca_time[-1])*fr))
     #print(ca_df['time'].iloc[-1],ca_time[-1],vr_time[-1],ca_time.shape)
 
     #print(ca_df.iloc[:-underhang+1].shape)
     #f_mean = sp.interpolate.interp1d(vr_time,frame[['pos','dz']]._values,axis=0,kind='slinear')
     f_mean = sp.interpolate.interp1d(vr_time,frame['pos']._values,axis=0,kind='slinear')
-    #print(ca_time.shape,ca_df.shape)
+    #print(ca_time[0],ca_time[-1],vr_time[0],vr_time[-1])
     ca_df.loc[ca_df.time<=vr_time[-1],'pos'] = f_mean(ca_time)
 
     near_list = ['morph','clickOn','towerJitter','wallJitter','bckgndJitter']

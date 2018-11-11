@@ -229,17 +229,8 @@ def run_PCA(C,data_TO,save=False,fbase = None,filestr=None):
     axarr[4,1].set_xlabel("PC 3")
     axarr[4,1].set_ylabel("PC 4")
 
-    if save:
-        try:
-            os.makedirs(os.path.join(fbase,'PCA'))
-        except:
-            pass
 
-        f.savefig(os.path.join(fbase,'PCA',filestr+".pdf"),format='pdf')
-        f.savefig(os.path.join(fbase,'PCA',filestr+".svg"),format='svg')
-
-
-    return X
+    return f,X
 
 def run_placecells(C,data_TO,save=False,fbase = None,filestr=None):
     morphs = np.sort(np.unique(data_TO['morph']._values))

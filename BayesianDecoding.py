@@ -6,6 +6,7 @@ import preprocessing as pp
 import numpy as np
 import scipy as sp
 import sklearn as sk
+import sklearn.linear_model
 from matplotlib import pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.collections import LineCollection
@@ -259,7 +260,7 @@ def decoding_model(trial_C_z,XX_I0,XX_I1,mu_i0,mu_i1,morphs):
 
 
 
-def single_session(sess):
+def single_session(sess,save=False,dirbase=None):
     VRDat, C,Cd,S, A = pp.load_scan_sess(sess)
     C_z = sp.stats.zscore(C,axis=0)
     trial_info, tstart_inds, teleport_inds = u.by_trial_info(VRDat)
@@ -278,10 +279,17 @@ def single_session(sess):
     pcnt = np.zeros([VRDat.shape[0],])
     trial_pos, trial_C_z  = [], []
     trial_pos_binned = []
-    for i, (start,stop) in enumerate(zip(tstart_inds,teleport_inds)):
-        trial_pos.append(VRDat['pos']._values[start:stop])
+    trial_licks = []
+    for i,(start,stop) in enumerate(zip(tstart_inds,teleport_inds)):
+        pos = VRDat['pos']._values[start:stop]
+        trial_pos.append(pos)
         trial_C_z.append(C_z[start:stop,:]) # restrict to well fit cells
         trial_pos_binned.append(pos_binned[start:stop])
+        lick_inds = np.where(VRDat['lick']._values[start:stop]>0)[0]
+        licks = np.zeros(pos.shape)
+        licks[:]=np.nan
+        licks[lick_inds]=pos[lick_inds]
+        trial_licks.append(licks)
         pcnt[start:stop] = int(trial_info['rewards'][i]>0)
 
     #  set up encoding models
@@ -302,10 +310,17 @@ def single_session(sess):
 
 
     decode_dict= decoding_model(trial_C_z,XX_I0,XX_I1,mu_i0,mu_i1,trial_info['morphs'])
-
+    plot_cellsVtime(decode_dict,trial_info,save=save,dir=dirbase)
+    llr(C_z,VRDat,glm_base,trial_info,save=save,dir=dirbase)
+    plot_decoding(decode_dict,trial_info,trial_pos_binned,trial_licks,save=save,dir=dirbase)
     return decode_dict
 
 def plot_cellsVtime(decode_dict,trial_info,save = False, dir=None):
+    if save:
+        try:
+            os.makedirs(dir+"\\cellvtime")
+        except:
+            print("path exists")
 
     for i, (tmppost,m) in enumerate(zip(decode_dict['i1'],trial_info['morphs'])):
         #if m>0 and m<1:
@@ -313,10 +328,11 @@ def plot_cellsVtime(decode_dict,trial_info,save = False, dir=None):
         ax.imshow(tmppost.T,aspect='auto',cmap='cool',vmin=0,vmax=1)
         ax.set_title(m)
         if save:
-            f.savefig(os.path.join(dir,'trial%d_morph%2f' % (i,m)))
+
+            f.savefig("%s\\cellvtime\\trial%d_morph%2f.pdf" % (dir,i,m),format='pdf')
 
 
-def llr(C_z,VRDat,glm,trial_info):
+def llr(C_z,VRDat,glm,trial_info,save=False,dir=None):
     # get likelihood for each point in time for log-likelihood ratio
     tmp_mu_i0 = glm.predict(pos_morph_design_matrix(VRDat['pos'],np.zeros([VRDat['pos'].shape[0],])))
     l_i0 = gaussian_pdf(C_z,tmp_mu_i0,1)
@@ -344,39 +360,38 @@ def llr(C_z,VRDat,glm,trial_info):
         if r>0:
             if m == 0:
                 ax[0].plot(tmppos[:],lr[:],color=plt.cm.cool(m),linewidth=.3)
-                ax[0].set_ylim([-250,200])
+                ax[0].set_ylim([-300,300])
 
             elif m == .25:
                 ax[1].plot(tmppos[:],lr[:],color=plt.cm.cool(m),linewidth=.3)
-                ax[1].set_ylim([-250,200])
+                ax[1].set_ylim([-300,300])
             elif m  == .5 :
                 ax[2].plot(tmppos[:],lr[:],color=plt.cm.cool(m),linewidth=.3)
-                ax[2].set_ylim([-250,200])
+                ax[2].set_ylim([-300,300])
             elif m == .75:
                 ax[3].plot(tmppos[:],lr[:],color=plt.cm.cool(m),linewidth=.3)
-                ax[3].set_ylim([-250,200])
+                ax[3].set_ylim([-300,300])
 
             elif m == 1.:
                 ax[4].plot(tmppos[:],lr[:],color=plt.cm.cool(m),linewidth=.3)
-                ax[4].set_ylim([-250,200])
+                ax[4].set_ylim([-300,300])
         else:
             if m == 0:
                 ax[0].plot(tmppos[:],lr[:],color='black',linewidth=.3,alpha=.6)
-                ax[0].set_ylim([-250,200])
 
             elif m == .25:
                 ax[1].plot(tmppos[:],lr[:],color='black',linewidth=.3,alpha=.6)
-                ax[1].set_ylim([-250,200])
+
             elif m  == .5 :
                 ax[2].plot(tmppos[:],lr[:],color='black',linewidth=.3,alpha=.6)
-                ax[2].set_ylim([-250,200])
+
             elif m == .75:
                 ax[3].plot(tmppos[:],lr[:],color='black',linewidth=.3,alpha=.6)
-                ax[3].set_ylim([-250,200])
+
 
             elif m == 1.:
                 ax[4].plot(tmppos[:],lr[:],color='black',linewidth=.3,alpha=.6)
-                ax[4].set_ylim([-250,200])
+
 
         if i == 0:
             for j in range(5):
@@ -392,19 +407,28 @@ def llr(C_z,VRDat,glm,trial_info):
             mcount[m][z] += sum(posbins==z)
 
 
-    f,ax = plt.subplots()
+    f_mu,ax_mu = plt.subplots()
     for key in avgTrace.keys():
         avgTrace[key] = np.divide(avgTrace[key],mcount[key])
         #print(avgTrace[key])
-        ax.plot(xbins,avgTrace[key],color=plt.cm.cool(np.float(key)))
-        ax.axhline(0,xmin=0,xmax=460,color='black',linewidth=.5)
+        ax_mu.plot(xbins,avgTrace[key],color=plt.cm.cool(np.float(key)))
+        ax_mu.axhline(0,xmin=0,xmax=460,color='black',linewidth=.5)
 
+    if save:
+        f.savefig("%s\\single_trial_llr.pdf" % dir,format='pdf')
+        f_mu.savefig("%s\\trial_avg_llr.pdf" % dir,format='pdf')
 
 
 def plot_decoding(decode_dict,trial_info,trial_pos_binned,trial_licks,save = False, dir = None,rzone0=[250,315],rzone1=[350,415]):
 
     rzone0 = [i/5 for i in rzone0]
     rzone1 = [i/5 for i in rzone1]
+    if save:
+        try:
+            os.makedirs("%s\\decoding" % dir)
+        except:
+            print("error making directory")
+
     for t in range(trial_info['morphs'].shape[0]):
         px = np.hstack((decode_dict['pop i0x_y'][t],decode_dict['pop i1x_y'][t])).T
         #print(px.sum(axis=0))
@@ -437,4 +461,4 @@ def plot_decoding(decode_dict,trial_info,trial_pos_binned,trial_licks,save = Fal
         aax.axhline(.5,xmin=0,xmax=px.shape[1])
         aax.set_xlim([0,px.shape[1]])
         if save:
-            f.savefig(os.path.join(dir,'decoding_trial%d_morph%2f_reward%d.pdf' % (t,trial_info['morphs'][t],int(trial_info['rewards'][t]))),format='pdf')
+            f.savefig("%s\\decoding\\trial%d_morph%2f_reward%d.pdf" % (dir,t,trial_info['morphs'][t],int(trial_info['rewards'][t])),format='pdf')

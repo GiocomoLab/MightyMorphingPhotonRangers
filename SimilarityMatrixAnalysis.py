@@ -47,7 +47,7 @@ def single_session(sess, C= None, VRDat = None, zscore = True, spikes = False, n
 
 
 def plot_simmat(S,m):
-    f,ax = plt.subplots(1,1, figsize=[m*5,m*5])
+    f,ax = plt.subplots(1,1, figsize=[m*2,m*2])
     # m = number of morphs
     N = S.shape[0]
 
