@@ -107,6 +107,7 @@ def load_scan_sess(sess):
     if frame_diff>0:
         VRDat = VRDat.iloc[:-frame_diff]
 
+    # print('load session',np.where(VRDat.tstart==1)[0].shape[0],np.where(VRDat.teleport==1)[0].shape[0])
     if 'A_keep' in ca_dat.keys():
         return VRDat,C,Cd,S, ca_dat['A_keep']
     elif 'A' in ca_dat.keys():
@@ -205,6 +206,7 @@ def _VR_align_to_2P(frame,infofile, n_imaging_planes = 1):
     near_list = ['morph','clickOn','towerJitter','wallJitter','bckgndJitter']
     f_nearest = sp.interpolate.interp1d(vr_time,frame[near_list]._values,axis=0,kind='nearest')
     ca_df.loc[ca_df.time<=vr_time[-1],near_list] = f_nearest(ca_time)
+    ca_df.fillna(method='ffill',inplace=True)
 
     cumsum_list = ['dz','lick','reward','tstart','teleport']
 
@@ -216,10 +218,15 @@ def _VR_align_to_2P(frame,infofile, n_imaging_planes = 1):
     #print('cumsum',ca_cumsum[-1,:])
     #ca_df[cumsum_list].iloc[1:-underhang+1]=np.diff(ca_cumsum,axis=0
 
+    # print('ca_cumsum nans', np.sum(np.isnan(np.diff(ca_cumsum,axis=0))))
     ca_df.loc[ca_df.time<=vr_time[-1],cumsum_list] = np.diff(ca_cumsum,axis=0)
-    #print('df sum', ca_df.tstart.sum(),ca_df.teleport.sum())
+    # print('df sum', ca_df.tstart.sum(),ca_df.teleport.sum())
+    # print('df sum alt',np.where(ca_df.tstart==1)[0].shape[0],np.where(ca_df.teleport==1)[0].shape[0])
+    # fill na here
+    ca_df.loc[np.isnan(ca_df['teleport']._values),'teleport']=0
+    ca_df.loc[np.isnan(ca_df['tstart']._values),'tstart']=0
+    # print('ca_cumsum nans', np.sum(np.isnan(ca_df['teleport']._values)))
 
-    ca_df.fillna(method='ffill',inplace=True)
     k = Gaussian1DKernel(5)
     cum_dz = convolve(np.cumsum(ca_df['dz']._values),k,boundary='extend')
     ca_df['dz'] = np.ediff1d(cum_dz,to_end=0)
@@ -233,7 +240,7 @@ def _VR_align_to_2P(frame,infofile, n_imaging_planes = 1):
     ca_df['lick rate'] = np.array(np.divide(ca_df['lick'],np.ediff1d(ca_df['time'],to_begin=1./fr)))
     ca_df['lick rate'] = convolve(ca_df['lick rate']._values,k,boundary='extend')
     ca_df[['reward','tstart','teleport','lick','clickOn','towerJitter','wallJitter','bckgndJitter']].fillna(value=0,inplace=True)
-
+    # print('end df sum',np.where(ca_df.tstart==1)[0].shape[0],np.where(ca_df.teleport==1)[0].shape[0])
     return ca_df
 
 def _VR_interp(frame):
@@ -298,7 +305,7 @@ def _get_frame(f,fix_teleports=True):
         pos[pos<-50] = -50
         teleport_inds = np.where(np.ediff1d(pos,to_end=0)<=-50)[0]
         tstart_inds = np.append([0],teleport_inds[:-1]+1)
-        #print(tstart_inds.shape,teleport_inds.shape)
+        # print('get frame',tstart_inds.shape,teleport_inds.shape)
 
 
         #if teleport_inds.shape[0]<tstart_inds.shape[0]:

@@ -38,13 +38,13 @@ def rate_map(C,position,bin_size=10,min_pos = 0, max_pos=450):
 
 def make_pos_bin_trial_matrices(arr, pos, tstart, tstop,method = 'mean',bin_size=5,perm=False):
     '''make a ntrials x position x neurons tensor'''
-    if tstart.max()<=1: # if binary, leaving in for backwards compatibility
+    if tstart.shape[0]>1000: # if binary, leaving in for backwards compatibility
         tstart_inds, tstop_inds = np.where(tstart==1)[0],np.where(tstop==1)[0]
         ntrials = np.sum(tstart)
     else:
         tstart_inds, tstop_inds = tstart, tstop
         ntrials = tstart.shape[0]
-    #print(tstart_inds.shape,tstop_inds.shape)
+    # print('pos bin',tstart_inds.shape,tstop_inds.shape,ntrials)
 
     #ntrials = np.sum(tstart)
     bin_edges = np.arange(0,450+bin_size,bin_size)
@@ -157,7 +157,7 @@ def trial_type_dict(mat,type_vec):
 def by_trial_info(data,rzone0=(250,315),rzone1=(350,415)):
     '''get abunch of single trial behavioral information and save it in a dictionary'''
     tstart_inds, teleport_inds = data.index[data.tstart==1],data.index[data.teleport==1]
-    #print('by trial func', tstart_inds.shape,teleport_inds.shape)
+    # print('by trial func', tstart_inds.shape,teleport_inds.shape)
     #print(tstart_inds.shape[0],teleport_inds.shape[0])
     trial_info={}
     morphs = np.zeros([tstart_inds.shape[0],])

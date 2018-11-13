@@ -220,10 +220,13 @@ def place_cells_split_halves(C, position, trial_info, tstart_inds, teleport_inds
         SI[m]['even'] = spatial_info(FR[m]['even'],occ_e)
 
 
-        p_e, shuffled_SI = spatial_info_perm_test(SI[m]['even'],C,position,tstart_morph_dict[m],teleport_morph_dict[m],nperms=100)
-        p_o, shuffled_SI = spatial_info_perm_test(SI[m]['odd'],C,position,tstart_morph_dict[m],teleport_morph_dict[m],shuffled_SI=shuffled_SI)
 
-        masks[m]=np.multiply(p_e>.95,p_o<.95)
+        p_e, shuffled_SI = spatial_info_perm_test(SI[m]['even'],C,position,tstart_morph_dict[m][1::2],teleport_morph_dict[m][1::2],nperms=100)
+        p_o, shuffled_SI = spatial_info_perm_test(SI[m]['odd'],C,position,tstart_morph_dict[m][0::2],teleport_morph_dict[m][0::2], nperms = 100 ) #,shuffled_SI=shuffled_SI)
+        #for i in range(SI[m]['all'].shape[0]):
+        #    print("%d: SI odd %.2E SI even %.2E, p_o %.2E p_e %.2E m %r" %(i,SI[m]['odd'][i],SI[m]['even'][i],p_e[i],p_o[i],(p_e[i]>.95) * (p_o[i]>.95)))
+
+        masks[m]=np.multiply(p_e>.95,p_o>.95)
 
     return masks, FR, SI
 

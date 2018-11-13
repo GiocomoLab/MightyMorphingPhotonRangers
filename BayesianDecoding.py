@@ -11,7 +11,7 @@ from matplotlib import pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.collections import LineCollection
 
-def make_spline_basis(x,knots=np.arange(0,450,100)):
+def make_spline_basis(x,knots=np.arange(0,450,50)):
     '''make cubic spline basis functions'''
     knotfunc = lambda k: np.power(np.multiply(x-k,(x-k)>0),3)
     spline_basis_list = [knotfunc(k) for k in knots.tolist()]
@@ -20,7 +20,7 @@ def make_spline_basis(x,knots=np.arange(0,450,100)):
 
 
 
-def pos_morph_design_matrix(x,m,splines=True,knots=np.arange(-50,450,50)):
+def pos_morph_design_matrix(x,m,splines=True,knots=np.arange(-50,450,50),speed=None):
     '''make design matrix for GLM that uses basis functions for position and separate regresssors for each context'''
     if splines:
         basis = make_spline_basis(x,knots=knots)
@@ -31,7 +31,14 @@ def pos_morph_design_matrix(x,m,splines=True,knots=np.arange(-50,450,50)):
     M = np.matlib.repmat(m[np.newaxis].T,1,basis.shape[1])
 
     dmat = np.hstack((basis,np.multiply(M,basis)))
+    if speed is not None:
+
+        dmat= np.hstack((dmat,speed[np.newaxis].T))
     return dmat
+
+
+
+
 
 
 def empirical_density(x,y,xbinsize=10):

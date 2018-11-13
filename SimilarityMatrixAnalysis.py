@@ -13,37 +13,67 @@ import matplotlib.gridspec as gridspec
 
 
 
-def single_session(sess, C= None, VRDat = None, zscore = True, spikes = False, normalize = False):
+def single_session(sess, C= None, VRDat = None, zscore = False, spikes = False, cell_normalize = False,corr=True,bootstrap=True,mask = None):
     '''calculate similarity matrices, average within the morphs and plot results'''
     # load calcium data and aligned vr
-    if (C is None) or (VRDat is None) or (A is None):
+    if (C is None) or (VRDat is None):
         VRDat, C, Cd, S, A = pp.load_scan_sess(sess)
 
-    if spikes:
-        C = gaussian_filter1d(S,3,axis=0)
-
-    if zscore:
-        print(C.shape)
-        Cz = sp.stats.zscore(C,axis=0)
+    if mask is not None:
+        C = C[:,mask]
 
     # get trial by trial info
     trial_info, tstart_inds, teleport_inds = u.by_trial_info(VRDat)
-    print("sim script",tstart_inds.shape,teleport_inds.shape)
+    # print("sim script",tstart_inds.shape,teleport_inds.shape)
     C_trial_mat, occ_trial_mat, edges,centers = u.make_pos_bin_trial_matrices(C,VRDat['pos']._values,VRDat['tstart']._values,VRDat['teleport']._values)
+    # print("trials",C_trial_mat.shape)
     C_morph_dict = u.trial_type_dict(C_trial_mat,trial_info['morphs'])
 
-    S = morph_simmat(C_morph_dict, normalize = normalize)
-    m = len(C_morph_dict.keys())-3
-    U, U_rnorm = morph_mean_simmat(S,m)
+    mlist = np.unique(np.sort(trial_info['morphs'])).tolist()
+    m = len(mlist)
+    if bootstrap:
+        nperms = 1000
+        S_full = morph_simmat(C_morph_dict, cell_normalize = cell_normalize,corr=corr)
 
-    f_S,ax_S = plot_simmat(S,m)
+        U_full, U_full_rnorm = morph_mean_simmat(S_full,m)
 
-    f_U,ax_U = plt.subplots(2,1,figsize=[5,10])
-    ax_U[0].imshow(U,cmap='Greys')
+        # allocate space
+        S_bs = np.zeros([S_full.shape[0],S_full.shape[1], nperms])
+        U_bs = np.zeros([5,5,nperms])
 
-    ax_U[1].imshow(U_rnorm,cmap='Greys')
+        for p in range(nperms):
+            C_tmp = {}
+            for morph in mlist:
+                bs_n = int(.67*C_morph_dict[morph].shape[0]) # take random 2/3 of trials of each type
+                order = np.random.permutation(C_morph_dict[morph].shape[0])[:bs_n]
+                C_tmp[morph]= C_morph_dict[morph][order,:,:]
 
-    return S, U, U_rnorm, (f_S,ax_S), (f_U, ax_U)
+
+            S_bs[:,:,p] = morph_simmat(C_tmp,corr=corr,cell_normalize=cell_normalize)
+            U_bs[:,:,p],trash = morph_mean_simmat(S_bs[:,:,p],5)
+
+        f_S,ax_S = plot_simmat(np.nanmean(S_bs,axis=-1),m)
+
+        f_U,ax_U = plt.subplots(figsize=[5,5])
+
+        ax_U.imshow(np.nanmean(U_bs,axis=-1),cmap='Greys')
+
+        return S_bs, U_bs, (f_S,ax_S), (f_U, ax_U)
+
+
+
+    else:
+        S = morph_simmat(C_morph_dict, cell_normalize = cell_normalize,corr=corr)
+        U, U_rnorm = morph_mean_simmat(S,m)
+
+        f_S,ax_S = plot_simmat(S,m)
+
+        f_U,ax_U = plt.subplots(2,1,figsize=[5,10])
+        ax_U[0].imshow(U,cmap='Greys')
+
+        ax_U[1].imshow(U_rnorm,cmap='Greys')
+
+        return S, U, U_rnorm, (f_S,ax_S), (f_U, ax_U)
 
 
 def plot_simmat(S,m):
@@ -52,7 +82,7 @@ def plot_simmat(S,m):
     N = S.shape[0]
 
     step = int(N/m)
-    e = np.arange(step,N+1,step)
+    e = np.arange(step,N+1,step)-1
 
     ax.imshow(S,aspect='auto',cmap='Greys')
     ax.vlines(e,0,N,color='red',alpha=.2)
@@ -85,8 +115,18 @@ def morph_mean_simmat(S,m):
 
     return U, U_rnorm
 
-def morph_simmat(C_morph_dict, normalize = False):
-    X = morph_by_cell_mat(C_morph_dict,normalize=normalize)
+def morph_simmat(C_morph_dict, cell_normalize = False,corr = False ):
+    X = morph_by_cell_mat(C_morph_dict,normalize=cell_normalize)
+
+    if corr: # center and scale by l2 norm to give correlation
+        for j in range(int(X.shape[1])):
+            nrm = np.linalg.norm(X[~np.isnan(X[:,j]),j])
+
+            if nrm>0:
+                X[:,j]=(X[:,j]-np.nanmean(X[:,j].ravel()))/nrm
+            else:
+                print(nrm)
+
     return np.matmul(X.T,X)
 
 def morph_by_cell_mat(C_morph_dict,normalize = False):
@@ -105,7 +145,7 @@ def morph_by_cell_mat(C_morph_dict,normalize = False):
                 k+=1
                 X = fr.T
             else:
-                print(X.shape,fr.shape)
+                #print(X.shape,fr.shape)
                 X = np.hstack((X,fr.T))
 
     return X
