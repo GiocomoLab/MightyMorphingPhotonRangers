@@ -11,8 +11,8 @@ import pickle
 
 if __name__ == '__main__':
 
-    #mice = ['4139190.1', '4139190.3','4139212.2','4139212.4','4139219.2','4139219.3','4139224.2','4139224.3','4139224.5']
-    mice = ['4139212.4','4139219.2','4139219.3','4139224.2','4139224.3','4139224.5']
+    mice = ['4139190.1', '4139190.3','4139212.2','4139212.4','4139219.2','4139219.3','4139224.2','4139224.3','4139224.5']
+    #mice = ['4139212.4','4139219.2','4139219.3','4139224.2','4139224.3','4139224.5']
 
     df = pp.load_session_db()
     df = df[df['RewardCount']>20]
@@ -23,7 +23,7 @@ if __name__ == '__main__':
 
     for mouse in mice:
 
-            dirbase = "G:\\My Drive\\Figures\\TwoTower\\SFN2018\\PlaceCells\\%s\\" % mouse
+            dirbase = "G:\\My Drive\\Figures\\TwoTower\\COSYNE2019\\PlaceCells\\%s\\" % mouse
             try:
                 os.makedirs(dirbase)
             except:

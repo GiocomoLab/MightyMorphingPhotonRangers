@@ -50,7 +50,7 @@ def single_session(sess, C= None, VRDat = None, zscore = False, spikes = False, 
 
 
             S_bs[:,:,p] = morph_simmat(C_tmp,corr=corr,cell_normalize=cell_normalize)
-            U_bs[:,:,p],trash = morph_mean_simmat(S_bs[:,:,p],5)
+            U_bs[:,:,p],trash = morph_mean_simmat(S_bs[:,:,p],m)
 
         f_S,ax_S = plot_simmat(np.nanmean(S_bs,axis=-1),m)
 

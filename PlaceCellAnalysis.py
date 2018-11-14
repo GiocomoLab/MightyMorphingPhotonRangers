@@ -28,7 +28,7 @@ def single_session(sess, C= None, VRDat = None, A=None,savefigs = False,fbase=No
 
     # find place cells individually on odd and even trials
     # keep only cells with significant spatial information on both
-    masks, FR, SI = place_cells_split_halves(C, VRDat['pos']._values,trial_info, VRDat['tstart']._values, VRDat['teleport']._values)
+    masks, FR, SI = place_cells_calc(C, VRDat['pos']._values,trial_info, VRDat['tstart']._values, VRDat['teleport']._values)
 
     # plot place cells by morph
     f_pc, ax_pc = plot_placecells(C_morph_dict,masks)
@@ -185,7 +185,7 @@ def spatial_info(frmap,occupancy):
     return np.array(SI)
 
 
-def place_cells_split_halves(C, position, trial_info, tstart_inds, teleport_inds):
+def place_cells_calc(C, position, trial_info, tstart_inds, teleport_inds,split_halves=False):
     '''get masks for significant place cells that have significant place info
     in both even and odd trials'''
 
@@ -221,12 +221,16 @@ def place_cells_split_halves(C, position, trial_info, tstart_inds, teleport_inds
 
 
 
-        p_e, shuffled_SI = spatial_info_perm_test(SI[m]['even'],C,position,tstart_morph_dict[m][1::2],teleport_morph_dict[m][1::2],nperms=100)
-        p_o, shuffled_SI = spatial_info_perm_test(SI[m]['odd'],C,position,tstart_morph_dict[m][0::2],teleport_morph_dict[m][0::2], nperms = 100 ) #,shuffled_SI=shuffled_SI)
-        #for i in range(SI[m]['all'].shape[0]):
-        #    print("%d: SI odd %.2E SI even %.2E, p_o %.2E p_e %.2E m %r" %(i,SI[m]['odd'][i],SI[m]['even'][i],p_e[i],p_o[i],(p_e[i]>.95) * (p_o[i]>.95)))
+        if split_halves:
+            p_e, shuffled_SI = spatial_info_perm_test(SI[m]['even'],C,position,tstart_morph_dict[m][1::2],teleport_morph_dict[m][1::2],nperms=100)
+            p_o, shuffled_SI = spatial_info_perm_test(SI[m]['odd'],C,position,tstart_morph_dict[m][0::2],teleport_morph_dict[m][0::2], nperms = 100 ) #,shuffled_SI=shuffled_SI)
+            #for i in range(SI[m]['all'].shape[0]):
+            #    print("%d: SI odd %.2E SI even %.2E, p_o %.2E p_e %.2E m %r" %(i,SI[m]['odd'][i],SI[m]['even'][i],p_e[i],p_o[i],(p_e[i]>.95) * (p_o[i]>.95)))
 
-        masks[m]=np.multiply(p_e>.95,p_o>.95)
+            masks[m]=np.multiply(p_e>.95,p_o>.95)
+        else:
+            p_all, shuffled_SI = spatial_info_perm_test(SI[m]['all'],C,position,tstart_morph_dict[m],teleport_morph_dict[m],nperms=100)
+            masks[m] = p_all>.95
 
     return masks, FR, SI
 
