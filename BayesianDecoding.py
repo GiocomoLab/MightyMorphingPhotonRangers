@@ -7,6 +7,7 @@ import numpy as np
 import scipy as sp
 import sklearn as sk
 import sklearn.linear_model
+from sklearn.neighbors.kde import KernelDensity
 from matplotlib import pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.collections import LineCollection
@@ -43,19 +44,35 @@ def pos_morph_design_matrix(x,m,splines=True,knots=np.arange(-50,450,50),speed=N
 
 class empirical_density:
     '''calculate empirical joint density'''
-    def _init_(self,x,y,xknots = np.linspace(0,450), yknots=(-3,15)):
+    def __init__(self,x,y,xknots = np.linspace(0,450,num=10), yknots=np.linspace(-3,15,num=3),xedges=np.arange(0,451,10),yedges=np.arange(-3,15,1)):
         self.xknots=xknots
-        elf.yknots = yknots
-        self.d = sp.interpolate.LSQBivariateSpline(x,y,xknots,yknots)
-        self.N = d.integral(xknots[0],xknots[-1],yknots[0],yknots[-1])
+        self.yknots = yknots
+        self.xedges,self.yedges = xedges,yedges
+        X=np.zeros([xedges[:-1].size,yedges[:-1].size])
+        for j in range(X.shape[1]):
+            X[:,j]=xedges[:-1]
+        Y = np.zeros([xedges[:-1].size,yedges[:-1].size])
+        for i in range(Y.shape[0]):
+            Y[i,:]=yedges[:-1]
+
+        z,trsh,trsh = np.histogram2d(x,y,bins=[self.xedges,self.yedges])
+        z/=z.sum().sum()
+        self.z = z
+        #print(z.shape,X.shape,Y.shape)
+        #self.d = sp.interpolate.LSQBivariateSpline(X.ravel(),Y.ravel(),z.ravel(),xknots,yknots,kx=1,ky=1)
+        #self.d = sp.interpolate.SmoothBivariateSpline(X.ravel(),Y.ravel(),z.ravel(),kx=1,ky=1)
+        self.d = sp.interpolate.RectBivariateSpline(xedges[:-1],yedges[:-1],z)
+        self.N = self.d.integral(-50,500,-10,50)
+        #print(self.N)
     def pdf(self,xi,yi):
         return self.d.ev(xi,yi)/self.N
 
     def condy_x(self,xi,yi):
-        return self.pdf(xi,yi)/self.d.integral(xi,xi,self.yknots[0],self.yknots[-1])
+        #print(self.d.ev(xi,yi))
+        return self.d.ev(xi,yi)/self.d.integral(xi,xi+.0001,self.yedges[0],self.yedges[-1])
 
     def condx_y(self,xi,yi):
-        return self.pdf(xi,yi)/self.d.integral(self.xknots[0],self.xknots[-1],yi,yi)
+        return self.pdf(xi,yi)/self.d.integral(self.xedges[0],self.xedges[-1],yi,yi+.01)
 
 
 
