@@ -43,7 +43,7 @@ def pos_morph_design_matrix(x,m,splines=True,knots=np.arange(-50,450,50),speed=N
 
 class empirical_density:
     '''calculate empirical joint density'''
-    def _init_(x,y,xknots = np.linspace(0,450), yknots=(-3,15)):
+    def _init_(self,x,y,xknots = np.linspace(0,450), yknots=(-3,15)):
         self.xknots=xknots
         elf.yknots = yknots
         self.d = sp.interpolate.LSQBivariateSpline(x,y,xknots,yknots)
