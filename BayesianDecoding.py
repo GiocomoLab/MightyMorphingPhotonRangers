@@ -41,37 +41,24 @@ def pos_morph_design_matrix(x,m,splines=True,knots=np.arange(-50,450,50),speed=N
 
 
 
-def empirical_density(x,y,xbinsize=10):
+class empirical_density:
     '''calculate empirical joint density'''
-    if len(x.shape)>1:
-        raise Exception('only dealing with univariate for now')
+    def _init_(x,y,xknots = np.linspace(0,450), yknots=(-3,15)):
+        self.xknots=xknots
+        elf.yknots = yknots
+        self.d = sp.interpolate.LSQBivariateSpline(x,y,xknots,yknots)
+        self.N = d.integral(xknots[0],xknots[-1],yknots[0],yknots[-1])
+    def pdf(self,xi,yi):
+        return self.d.ev(xi,yi)/self.N
 
-    # get ybins
-    ymin = np.floor(y.ravel().min())
-    ymax = np.ceil(y.ravel().max())
-    ybins = np.linspace(ymin,ymax,20)
-    y_binned = np.digitize(y,ybins,right=True)
+    def condy_x(self,xi,yi):
+        return self.pdf(xi,yi)/self.d.integral(xi,xi,self.yknots[0],self.yknots[-1])
 
-    # get xbins
-    xbins = [0]
-    for i in range(xbinsize,int(np.ceil(x.ravel().max())+xbinsize),xbinsize):
-        xbins.append(i)
-    x_binned = np.digitize(x,xbins,right=True)
+    def condx_y(self,xi,yi):
+        return self.pdf(xi,yi)/self.d.integral(self.xknots[0],self.xknots[-1],yi,yi)
 
-    #conditional distribution - P(Y|X)
-    mu_y_x = np.zeros([len(xbins),])
-    P_y_x= np.zeros([len(xbins),ybins.shape[0]])
-    for b in np.unique(x_binned).tolist():
-        inds = np.where(x_binned==b)[0]
-        yx = y_binned[inds]
-        mu_y_x[b] = y[inds].ravel().mean()
-        y_inds = np.unique(yx)
-        bcount = np.bincount(yx)
-        bcount = bcount[bcount>0]
 
-        P_y_x[b,y_inds] = bcount/x.shape[0]
 
-    return P_y_x, mu_y_x
 
 
 def gaussian_pdf(x,mu,sigma,univariate=True,eps=.01):
