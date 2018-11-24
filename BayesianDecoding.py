@@ -11,38 +11,53 @@ from sklearn.neighbors.kde import KernelDensity
 from matplotlib import pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.collections import LineCollection
+from scipy.ndimage import gaussian_filter
 
 
 
 class empirical_density:
     '''calculate empirical joint density'''
-    def __init__(self,x,y,bandwidth=1,kernel='gaussian'):
-        pxy = KernelDensity(bandwidth=bandwidth,kernel=kernel)
-        px = KernelDensity(bandwidth=bandwidth,kernel=kernel)
-        #print(x[np.newaxis].T)
-        #print(self.make_array(x,y).shape)
-        pxy.fit(self.make_array(x,y))
-        px.fit(x[np.newaxis].T)
+    def __init__(self,x,y,xbins = np.arange(0,451,5),ybins=np.arange(-2,15,.5),sigma=(3,3),bandwidth=1,kernel='gaussian'):
+        ybins = np.append(ybins,25)
+        H = np.histogram2d(x,y,bins=[xbins,ybins])
+        H_smooth = gaussian_filter(H,sigma,mode='nearest')
 
-        self.pxy = pxy
-        self.px = px
+        H_smooth = np.divide(H_smooth,np.dot(H_smooth.sum(axis=1),np.ones([1,H_smooth.shape[1]])))
 
-    def make_array(self,xi,yi):
-        if isinstance(yi,np.float64) or isinstance(yi,np.float32) or isinstance(yi,float):
-            arr = np.zeros([1,2])
-        else:
-            assert xi.shape == yi.shape, "x and y not the same shape"
-            arr = np.zeros([xi.size,2])
+        #pxy = KernelDensity(bandwidth=bandwidth,kernel=kernel)
+        #px = KernelDensity(bandwidth=bandwidth,kernel=kernel)
+        #pxy.fit(self.make_array(x,y))
+        #px.fit(x[np.newaxis].T)
 
-        arr[:,0],arr[:,1] = xi,yi
-        return arr
+        self.xbins=xbins
+        self.ybins=ybins
+        self.sigma = sigma
+        self.H_smooth= H_smooth
+        # self.pxy = pxy
+        # self.px = px
+
+    # def make_array(self,xi,yi):
+    #     if isinstance(yi,np.float64) or isinstance(yi,np.float32) or isinstance(yi,float):
+    #         arr = np.zeros([1,2])
+    #     else:
+    #         assert xi.shape == yi.shape, "x and y not the same shape"
+    #         arr = np.zeros([xi.size,2])
+    #
+    #     arr[:,0],arr[:,1] = xi,yi
+    #     return arr
 
 
-    def pdf(self,xi,yi):
-        return self.pxy.score_samples(self.make_array(xi,yi))
+    #def pdf(self,xi,yi):
 
-    def condy_x(self,xi,yi):
-        return np.divide(np.exp(self.pxy.score_samples(self.make_array(xi,yi))),np.exp(self.px.score_samples(xi[np.newaxis].T)))
+        #return self.pxy.score_samples(self.make_array(xi,yi))
+
+    #def condy_x(self,xi,yi):
+    def Likelihood(self,xi,yi):
+        x_inds = np.digitize(xi,self.xbins,right=True)
+        y_inds = np.digitize(yi,self.ybins,right=True)
+        return self.H_smooth[x_inds,y_inds]
+
+        #return np.divide(np.exp(self.pxy.score_samples(self.make_array(xi,yi))),np.exp(self.px.score_samples(xi[np.newaxis].T)))
 
 def make_spline_basis(x,knots=np.arange(0,450,50)):
     '''make cubic spline basis functions'''
