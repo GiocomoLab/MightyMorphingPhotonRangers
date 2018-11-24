@@ -12,34 +12,6 @@ from matplotlib import pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.collections import LineCollection
 
-def make_spline_basis(x,knots=np.arange(0,450,50)):
-    '''make cubic spline basis functions'''
-    knotfunc = lambda k: np.power(np.multiply(x-k,(x-k)>0),3)
-    spline_basis_list = [knotfunc(k) for k in knots.tolist()]
-    spline_basis_list += [np.ones(x.shape[0]),x,np.power(x,2)]
-    return np.array(spline_basis_list).T
-
-
-
-def pos_morph_design_matrix(x,m,splines=True,knots=np.arange(-50,450,50),speed=None):
-    '''make design matrix for GLM that uses basis functions for position and separate regresssors for each context'''
-    if splines:
-        basis = make_spline_basis(x,knots=knots)
-    else:
-        # add functionality for radial basis functions
-        pass
-
-    M = np.matlib.repmat(m[np.newaxis].T,1,basis.shape[1])
-
-    dmat = np.hstack((basis,np.multiply(M,basis)))
-    if speed is not None:
-
-        dmat= np.hstack((dmat,speed[np.newaxis].T))
-    return dmat
-
-
-
-
 
 
 class empirical_density:
@@ -71,11 +43,28 @@ class empirical_density:
     def condy_x(self,xi,yi):
         return np.exp(self.pxy.score_samples(self.make_array(xi,yi)))/np.exp(self.px.score_samples(xi))
 
+def make_spline_basis(x,knots=np.arange(0,450,50)):
+    '''make cubic spline basis functions'''
+    knotfunc = lambda k: np.power(np.multiply(x-k,(x-k)>0),3)
+    spline_basis_list = [knotfunc(k) for k in knots.tolist()]
+    spline_basis_list += [np.ones(x.shape[0]),x,np.power(x,2)]
+    return np.array(spline_basis_list).T
 
+def pos_morph_design_matrix(x,m,splines=True,knots=np.arange(-50,450,50),speed=None):
+    '''make design matrix for GLM that uses basis functions for position and separate regresssors for each context'''
+    if splines:
+        basis = make_spline_basis(x,knots=knots)
+    else:
+        # add functionality for radial basis functions
+        pass
 
+    M = np.matlib.repmat(m[np.newaxis].T,1,basis.shape[1])
 
+    dmat = np.hstack((basis,np.multiply(M,basis)))
+    if speed is not None:
 
-
+        dmat= np.hstack((dmat,speed[np.newaxis].T))
+    return dmat
 
 def gaussian_pdf(x,mu,sigma,univariate=True,eps=.01):
     '''calculate pdf for given mean and covariance'''
@@ -110,163 +99,70 @@ def transition_prob_matrix(x,binsize=5):
         XX[next_inds,b] = bcount/bcount.sum()
     return XX, bin_edges
 
-def decoding_model(trial_C_z,XX_I0,XX_I1,mu_i0,mu_i1,morphs):
+def empirical_decoding_model(L,T,starts, stops, morphs):
 
     # allocate for single cell data
-    post_i0x_y, post_i1x_y= [],[]
-    post_i0 ,post_i1 = [],[]
+    post_ix= np.zeros(L.shape)
+    post_i = np.zeros([L.shape[0],L.shape[2]])
 
     # allocate for population data
-    pop_post_i0x_y, pop_post_i1x_y = [], []
-    pop_post_i0, pop_post_i1 = [], []
+    pop_post_ix = np.zeros(L.shape[0:2])
+    pop_post_i = np.zeros([L.shape[0],])
 
-    for trial,I  in enumerate(morphs):
+    # number of spatial bins
+    NX = XX.shape[0]/2
 
+    for trial,(I,start,stop)  in enumerate(zip(morphs.tolist,starts.tolist(),stops.tolist())):
         #print(a.shape)
         if trial%5==0:
             print("processing trial %d" % trial)
 
 
-        cz = trial_C_z[trial]
-        post_trial0,post_trial1 = [],[]
-        pop_post_trial0, pop_post_trial1 = [],[]
-        for j in range(cz.shape[0]):
+        ind = start
+
+
+        for j in range(l.shape[0]):
             if j==0: # if first timepoint, set initial conditions
 
                 #### single cell initial conditions
                 # set probability of being in current position to 1
-                onehot = .001*np.ones([XX_I0.shape[1],1])
-                onehot[0] = 1.
-                onehot = onehot/onehot.ravel().sum()
+                B = .001*np.ones([T.shape[0],1])
+                B[0,:] = .5
+                B/= B.ravel().sum()
+                B = np.matlib.repat(B,L.shape[2])
 
-                # multiply by prior on being in context (.5)
-                tmp0 = .5*np.dot(onehot,np.ones([1,cz.shape[1]]))
-                tmp1 = .5*np.dot(onehot,np.ones([1,cz.shape[1]]))
+                BB = .001*np.ones([T.shape[0],1])
+                BB[0,:] = .5
+                BB/= BB.ravel().sum()
 
-                # normalization factor to account for digitization of position
-                tmp_denom = tmp0.sum(axis=0)+tmp1.sum(axis=0)
-                tmp_denom = np.dot(np.ones([XX_I0.shape[0],1]),tmp_denom[np.newaxis])
-
-                # posterior having observed 0 time points
-                Z0_t = np.divide(tmp0,tmp_denom)
-                Z1_t = np.divide(tmp1,tmp_denom)
-
-
-                #### pop decoding initial conditions
-                ttmp0 = .5*onehot
-                ttmp1 = .5*onehot
-
-                # normalization factor
-                ttmp_denom = ttmp0.sum(axis=0)+ttmp1.sum(axis=0)
-
-                # posterior having observed 1 time frame
-                ZZ0_t = ttmp0/ttmp_denom
-                ZZ1_t = ttmp1/ttmp_denom
 
             ######## single cell decoding
-            XZ0 = np.dot(XX_I0,Z0_t)
-            XZ1 = np.dot(XX_I1,Z1_t)
-
-            # make activity into a matrix and means at each position into a matrix in order to calculate likelihoods
-            CZX = np.matlib.repmat(cz[j,:],mu_i0.shape[0],1)
-
-            l0 = gaussian_pdf(CZX,mu_i0,1)
-            l1 = gaussian_pdf(CZX,mu_i1,1)
-            denom = np.matlib.repmat(l0.sum(axis=0) + l1.sum(axis=0),mu_i0.shape[0],1)
-            l0 = np.maximum(np.divide(l0,denom),.001)
-            l1 = np.maximum(np.divide(l1,denom),.001)
-
-            # numerator of new posterior
-            tmpnum0 = np.multiply(XZ0,l0)
-            tmpnum1= np.multiply(XZ1,l1)
-
-            # normalization factor for updated posterior
-            tmp_denom = tmpnum0.sum(axis=0)+tmpnum1.sum(axis=0)
-            tmp_denom = np.dot(np.ones([XX_I0.shape[0],1]),tmp_denom[np.newaxis])
-
-            # new posterior
-            Z0_t = np.divide(tmpnum0,tmp_denom)
-            Z1_t = np.divide(tmpnum1,tmp_denom)
-
-
-            # add to list for trial
-            post_trial0.append(Z0_t)
-            post_trial1.append(Z1_t)
+            # new posterior - unnormalized
+            B = np.multiply(np.dot(T,B),np.squeeze(L[start+j,:,:]))
+            # denominator for normaliztion
+            d = np.matlib.repmat(B.sum(axis=0),NX,1)
+            B = np.divide(B,d)
+            post_ix[start+j,:,:] = B
+            post_i[start+j,:] = B[NX:,:].sum(axis=0)
 
 
             # ######## population decoding
-            XXZZ0 = np.dot(XX_I0,1*ZZ0_t) + np.dot(XX_I1,(1-1)*ZZ1_t)
-            XXZZ1 = np.dot(XX_I0,(1-1)*ZZ0_t) + np.dot(XX_I1,1*ZZ1_t)
+            logBB = np.sum(np.log(np.squeeze(L[start+j,:,:])),axis=1) + np.log(np.dot(T,BB))
+            # prevent underflow
+            logBB -= logBB.max() -1
 
-            # make activity into a matrix and means at each position into a matrix in order to calculate likelihoods
-            CCZZXX = np.matlib.repmat(cz[j,:],mu_i0.shape[0],1)
-
-            #calculate likelihoods as a function of binned position
-            ll0 = gaussian_pdf(CCZZXX,mu_i0,1)
-            ll1 = gaussian_pdf(CCZZXX,mu_i1,1)
-
-            # normalize from binning
-            ddenom = np.matlib.repmat(ll0.sum(axis=0) + ll1.sum(axis=0),mu_i0.shape[0],1)
-            ll0 = np.divide(ll0,ddenom)
-            ll1 = np.divide(ll1,ddenom)
+            BB = np.exp(logBB)
+            BB/=BB.ravel().sum()
 
 
-            # population log-likelihood of current activity as a function of position
-            log_L0 = np.log(ll0).sum(axis=1)
-            log_L1 = np.log(ll1).sum(axis=1)
-
-            # numerator of new posterior
-            # first calculate in log space
-            log_tmpnum0 = log_L0 + np.squeeze(np.log(XXZZ0))
-            # bring back to values that won't overflow
-            log_tmpnum0 -= log_tmpnum0.max()-1
-            # back to normal space
-            ttmpnum0 = np.exp(log_tmpnum0)
-
-            # repeat
-            log_tmpnum1 = log_L1 + np.squeeze(np.log(XXZZ1))
-            log_tmpnum1 -= log_tmpnum1.max()-1
-            ttmpnum1 = np.exp(log_tmpnum1)
-
-            # normalization factor for updated posterior
-            ttmp_denom = ttmpnum0.sum(axis=0)+ttmpnum1.sum(axis=0)
+            pop_post_ix[start+j,:] = BB
+            pop_post_i[start+j]= BB[NX:].sum()
 
 
-            # new posterior
-            ZZ0_t = ttmpnum0/ttmp_denom
-            ZZ1_t = ttmpnum1/ttmp_denom
-
-            # add to list for trial
-            pop_post_trial0.append(ZZ0_t)
-            pop_post_trial1.append(ZZ1_t)
-
-
-
-
-        # append trials posterior to list
-        post_i0x_y.append(np.array(post_trial0))
-        post_i1x_y.append(np.array(post_trial1))
-        # sum across positions to get posterior of context
-        post_i1.append(np.squeeze(np.array(post_trial1).sum(axis=1)))
-        post_i0.append(np.squeeze(np.array(post_trial0).sum(axis=1)))
-
-
-        # append trials population posterior to list
-        pop_post_i0x_y.append(np.array(pop_post_trial0))
-        pop_post_i1x_y.append(np.array(pop_post_trial1))
-        # marginalize across position to get posterior of context
-        pop_post_i1.append(np.squeeze(np.array(pop_post_trial1).sum(axis=1)))
-        pop_post_i0.append(np.squeeze(np.array(pop_post_trial0).sum(axis=1)))
-
-
-    return {'i0x_y':post_i0x_y,
-            'i1x_y':post_i1x_y,
-            'i0': post_i0,
-            'i1':post_i1,
-            'pop i0x_y': pop_post_i0x_y,
-            'pop i1x_y':pop_post_i1x_y,
-            'pop i0': pop_post_i0,
-            'pop i1': pop_post_i1}
+    return {'cell ix':post_ix,
+            'cell i':post_i,
+            'pop ix': pop_post_ix,
+            'pop i': pop_post_i}
 
 
 
