@@ -16,9 +16,23 @@ import os.path
 from astropy.convolution import convolve, Gaussian1DKernel
 
 
+def correct_trial_mask(rewards,starts,stops,N):
+    pcnt = np.zeros([N,])
+    # get correct trials
+    for i,(start,stop) in enumerate(zip(starts,stops)):
+        pcnt[start:stop] = int(rewards[i]>0)
+    return pcnt
 
 
-def rate_map(C,position,bin_size=10,min_pos = 0, max_pos=450):
+def lick_positions(licks,position):
+    lickpos = np.zeros([licks.shape[0],])
+    lickpos[:]=np.nan
+    lick_inds = np.where(licks>0)[0]
+    lickpos[lick_inds]=position[lick_inds]
+    return lickpos
+
+
+def rate_map(C,position,bin_size=5,min_pos = 0, max_pos=465):
     '''non-normalized rate map E[df/F]|_x '''
     bin_edges = np.arange(min_pos,max_pos+bin_size,bin_size).tolist()
     if len(C.shape) ==1:
