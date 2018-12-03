@@ -69,13 +69,30 @@ def transition_prob_matrix(x,binsize=5):
 
 def empirical_decoding_model(L,T,starts, stops, prefix = "E:\\"):
 
-    # allocate for single cell data
-    post_ix= np.memmap(os.path.join(prefix,"post_ix.dat"),dtype='float32',mode='r+',shape=tuple(L.shape))#np.zeros(L.shape)
-    post_i = np.memmap(os.path.join(prefix,"post_i.dat"),dtype='float32', mode='r+',shape=(L.shape[0],L.shape[2])) #np.zeros([L.shape[0],L.shape[2]])
+    try:
+        # allocate for single cell data
+        post_ix= np.memmap(os.path.join(prefix,"post_ix.dat"),dtype='float32',mode='w+',shape=tuple(L.shape))#np.zeros(L.shape)
+    except:
+        # allocate for single cell data
+        post_ix= np.memmap(os.path.join(prefix,"post_ix.dat"),dtype='float32',mode='r+',shape=tuple(L.shape))#np.zeros(L.shape)
 
-    # allocate for population data
-    pop_post_ix = np.zeros(L.shape[0:2])
-    pop_post_i = np.zeros([L.shape[0],])
+    try:
+        post_i = np.memmap(os.path.join(prefix,"post_i.dat"),dtype='float32', mode='w+',shape=(L.shape[0],L.shape[2])) #np.zeros([L.shape[0],L.shape[2]])
+    except:
+        post_i = np.memmap(os.path.join(prefix,"post_i.dat"),dtype='float32', mode='r+',shape=(L.shape[0],L.shape[2])) #np.zeros([L.shape[0],L.shape[2]])
+
+        # allocate for population data
+    try:
+        pop_post_ix = np.memmap(os.path.join(prefix,"pop_post_ix.dat"),dtype='float32',mode='w+',shape= tuple(L.shape[0:2]))
+    except:
+        pop_post_ix = np.memmap(os.path.join(prefix,"pop_post_ix.dat"),dtype='float32',mode='r+',shape= tuple(L.shape[0:2]))
+
+    try:
+        pop_post_i = np.memmap(os.path.join(prefix,"pop_pos_i.dat"),dtype='float32',mode='w+',shape= (L.shape[0],))
+    except:
+        # allocate for population data
+        pop_post_i = np.memmap(os.path.join(prefix,"pop_pos_i.dat"),dtype='float32',mode='r+',shape= (L.shape[0],))
+
 
     # number of spatial bins
     NX = int(T.shape[0]/2)
@@ -136,6 +153,11 @@ def empirical_decoding_model(L,T,starts, stops, prefix = "E:\\"):
             BB/=BB.ravel().sum()
 
 
+    post_ix.flush()
+    post_i.flush()
+    pop_post_ix.flush()
+    pop_post_i.flush()
+
     return {'cell ix':post_ix,
             'cell i':post_i,
             'pop ix': pop_post_ix,
@@ -146,6 +168,11 @@ def empirical_decoding_model(L,T,starts, stops, prefix = "E:\\"):
 #def single_session(sess,save=False,dirbase=None,trainOnCorrect=True,prefix = "E:\\"):
 class single_session:
     def __init__(self,sess,save=False,trainOnCorrect=True,prefix = "E:\\"):
+        try:
+            os.makedirs(prefix)
+        except:
+            pass
+
         VRDat, C,Cd,S, A = pp.load_scan_sess(sess)
         C_z = sp.stats.zscore(C,axis=0)
         trial_info, tstart_inds, teleport_inds = u.by_trial_info(VRDat)
@@ -197,15 +224,22 @@ class single_session:
         XX[:XX_I0.shape[0],:XX_I0.shape[1]]=XX_I0
         XX[XX_I0.shape[0]:,XX_I0.shape[1]:]=XX_I1
 
+        XX_tmp, xbins = transition_prob_matrix(pos[inds0|inds1],binsize=5)
+        n = XX_I0.shape[0]
+        XX =  np.matlib.repmat(XX_tmp,2,2)
+
         xbins = np.array(xbins)
         return XX, xbins
 
-    def likelihood_maps(self):
+    def likelihood_maps(self,mmap = True):
         # get likelihoods at all timepoints - functionalize
-        try:
-            L = np.memmap(os.path.join(self.prefix,"L.dat"),dtype='float32',mode='r+',shape = (self.C_z.shape[0],self.xbins.shape[0]*2,self.C_z.shape[1]))
-        except:
-            L = np.memmap(os.path.join(self.prefix,"L.dat"),dtype='float32',mode='w+',shape = (self.C_z.shape[0],self.xbins.shape[0]*2,self.C_z.shape[1]))
+        if mmap:
+            try:
+                L = np.memmap(os.path.join(self.prefix,"L.dat"),dtype='float32',mode='r+',shape = (self.C_z.shape[0],self.xbins.shape[0]*2,self.C_z.shape[1]))
+            except:
+                L = np.memmap(os.path.join(self.prefix,"L.dat"),dtype='float32',mode='w+',shape = (self.C_z.shape[0],self.xbins.shape[0]*2,self.C_z.shape[1]))
+        else:
+            L = np.zeros( (self.C_z.shape[0],self.xbins.shape[0]*2,self.C_z.shape[1]))
         for c in range(0,self.C_z.shape[1]):
             pdf0 = empirical_density(self.pos[self.inds0],self.C_z[self.inds0,c])
             pdf1 = empirical_density(self.pos[self.inds1],self.C_z[self.inds1,c])
@@ -237,7 +271,7 @@ class single_session:
         LLR_pop = LLR.sum(axis=-1)
         return LLR,LLR_pop
 
-    def ctxt_LLR(self,L=None):
+    def ctxt_LLR(self,L=None,save=True):
         if L is None:
             L=self.likelihood_maps()
 
@@ -247,7 +281,9 @@ class single_session:
 
         px0 = np.matlib.repmat(px0[np.newaxis],L.shape[0],1)
         px1 = np.matlib.repmat(px1[np.newaxis],L.shape[0],1)
+
         Z = np.zeros([L.shape[0],2,self.C_z.shape[1]])
+
         for c in range(self.C_z.shape[1]):
             l0 = np.squeeze(L[:,:nbins,c])
             l1 = np.squeeze(L[:,nbins:,c])
@@ -260,17 +296,54 @@ class single_session:
         Z = np.log(Z)
         LLR = np.squeeze(Z[:,1,:]-Z[:,0,:])
         LLR_pop = LLR.sum(axis=-1)
+        if save:
+            np.savez(os.path.join(self.prefix,'ctxt_LLR.npz'),LLR,LLR_pop)
+
         return LLR,LLR_pop
+
+    def independent_decoder(self,L=None):
+        #not working yet
+        if L is None:
+            L = self.likelihood_maps()
+        try:
+            Z = np.memmap(os.path.join(self.prefix,"L.dat"),dtype='float32',mode='r+',shape = (self.C_z.shape[0],self.xbins.shape[0]*2,self.C_z.shape[1]))
+        except:
+            Z = np.memmap(os.path.join(self.prefix,"L.dat"),dtype='float32',mode='w+',shape = (self.C_z.shape[0],self.xbins.shape[0]*2,self.C_z.shape[1]))
+        nbins = self.xbins.shape[0]
+        fr, px0 = u.rate_map(self.C_z[self.inds0],self.pos[self.inds0],bin_size=5,max_pos=465)
+        fr, px1 = u.rate_map(self.C_z[self.inds1],self.pos[self.inds1],bin_size=5,max_pos=465)
+        px = np.append(px0,px1)
+        px/=px.sum()
+        px = np.matlib.repmat(px[np.newaxis],Z.shape[0],1)
+
+        for c in range(L.shape[2]):
+            if c%50==0:
+                print(c)
+            tmp=np.multiply(np.squeeze(L[:,:,c]),px)
+            d = np.dot(tmp.sum(axis=1)[np.newaxis].T,np.ones([1,px.shape[1]]))
+            Z[:,:,c]=np.divide(tmp,d)+1E-10
+
+        logZZ = np.log(Z).sum(axis=2)
+        ZZ = np.exp(logZZ-np.max(logZZ)-1)
+        d = np.dot(ZZ.sum(axis=1)[np.newaxis].T,np.ones([1,px.shape[1]]))
+        ZZ=np.divide(ZZ,d)
+        return {'cell ix':Z,
+                'cell i':np.squeeze(Z[:,self.xbins.shape[0]:,:].sum(axis=1)),
+                'log pop ix': logZZ,
+                'pop ix': ZZ,
+                'pop i': np.squeeze(ZZ[:,self.xbins.shape[0]:].sum(axis=1))}
+
+
 
     def run_decoding(self, L=None):
         if L is None:
             L = self.likelihood_maps()
 
-        return empirical_decoding_model(L,self.XX,self.tstarts,self.teleports)
+        return empirical_decoding_model(L,self.XX,self.tstarts,self.teleports,prefix = self.prefix)
 
 
 
-    def plot_decoding(self,decode_dict,LLR,LLR_pop,rzone0=[250,315],rzone1=[350,415],save=False):
+    def plot_decoding(self,decode_dict,rzone0=[250,315],rzone1=[350,415],save=False):
         rzone0 = [i/5 for i in rzone0]
         rzone1 = [i/5 for i in rzone1]
         if save:
@@ -304,13 +377,13 @@ class single_session:
             ax.set_title("trial %d morph %f reward %f" % (t,self.trial_info['morphs'][t],self.trial_info['rewards'][t]))
 
             aax = f.add_subplot(gs[6,:],sharex=ax)
-            aax.scatter(x,-LLR_pop[start:stop],c=plt.cm.cool(decode_dict['pop i'][start:stop]))
+            aax.scatter(x,decode_dict['pop i'][start:stop],c=plt.cm.cool(decode_dict['pop i'][start:stop]))
             aax.axhline(0,xmin=0,xmax=px.shape[1])
             aax.set_xlim([0,px.shape[1]])
-            aax.set_ylim([-70,70])
+            aax.set_ylim([-.2,1.2])
 
             aaax= f.add_subplot(gs[7:,:],sharex=ax)
-            aaax.imshow(LLR[start:stop,:].T,cmap = 'cool',aspect='auto',vmin=-2.5,vmax=2.5)
+            aaax.imshow(decode_dict['cell i'][start:stop,:].T,cmap = 'cool',aspect='auto',vmin=0,vmax=1)
             if save:
                 f.savefig("%s\\decoding\\trial%d_morph%2f_reward%d.pdf" % (prefix,t,self.trial_info['morphs'][t],int(self.trial_info['rewards'][t])),format='pdf')
 
@@ -329,8 +402,12 @@ class single_session:
             self._single_line_llr_multiax(np.arange(stop-start)*1./15.46,LLR[start:stop],m,r,ax_time,xlim=[0,250])
             ax_time[-1].set_ylabel('time')
 
-            aax_pos.plot(self.pos[start:stop],LLR[start:stop],color=plt.cm.cool(np.float(m)),alpha=.5)
-            aax_time.plot(np.arange(stop-start)*1./15.46,LLR[start:stop],color=plt.cm.cool(np.float(m)),alpha=.5)
+            if r>0:
+                aax_pos.plot(self.pos[start:stop],LLR[start:stop],color=plt.cm.cool(np.float(m)),alpha=.5)
+                aax_time.plot(np.arange(stop-start)*1./15.46,LLR[start:stop],color=plt.cm.cool(np.float(m)),alpha=.5)
+            else:
+                aax_pos.plot(self.pos[start:stop],LLR[start:stop],color='black',alpha=.5)
+                aax_time.plot(np.arange(stop-start)*1./15.46,LLR[start:stop],color='black',alpha=.5)
         return (f_pos,ax_pos), (ff_pos,aax_pos), (f_time,ax_time), (ff_time,aax_time)
         # edit axes
 

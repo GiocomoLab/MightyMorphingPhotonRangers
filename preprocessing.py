@@ -14,6 +14,7 @@ from datetime import datetime
 from glob import glob
 import os.path
 from astropy.convolution import convolve, Gaussian1DKernel
+import h5py
 
 def loadmat_sbx(filename):
     """
@@ -24,7 +25,10 @@ def loadmat_sbx(filename):
     which are still mat-objects
     """
     print(filename)
-    data_ = sp.io.loadmat(filename, struct_as_record=False, squeeze_me=True)
+    try:
+        data_ = sp.io.loadmat(filename, struct_as_record=False, squeeze_me=True)
+    except:
+
     return _check_keys(data_)
 
 
