@@ -27,9 +27,18 @@ def loadmat_sbx(filename):
     print(filename)
     try:
         data_ = sp.io.loadmat(filename, struct_as_record=False, squeeze_me=True)
+        return _check_keys(data_)
     except:
+        data_ = {}
+        with h5py.File(filename,'r') as f:
+            for k,v in f.items():
+                try:
+                    data_[k]=np.array(v)
+                except:
+                    data_[k]=v
+        return data_
 
-    return _check_keys(data_)
+
 
 
 def _check_keys(dict):
@@ -65,10 +74,10 @@ def load_ca_mat(fname,fov = [512,796]):
     ca_dat = {}
     try:
         with h5py.File(fname,'r') as f:
-            try:
-                C = np.array(f['C'])
-            except:
-                C = np.array(f['C_keep'])
+            # try:
+            #     C = np.array(f['C'])
+            # except:
+            #     C = np.array(f['C_keep'])
 
             for k,v in f.items():
                 try:
@@ -150,9 +159,9 @@ def build_2P_filename(mouse,date,scene,sess,serverDir = "G:\\My Drive\\2P_Data\\
         results_fname = os.path.join(serverDir,mouse,date,scene,"%s_*%s_*_cnmf_results_pre.mat" % (scene,sess))
         results_file=glob(results_fname)
 
-    info_fname = os.path.join(serverDir,mouse,date,scene,"%s_*%s_*.mat" % (scene,sess))
+    info_fname = os.path.join(serverDir,mouse,date,scene,"%s_*%s_*[0-9].mat" % (scene,sess))
     info_file = glob(info_fname)
-
+    #print(info_file)
     if len(info_file)==0:
         #raise Exception("file doesn't exist")
         return None, None

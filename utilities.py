@@ -61,7 +61,7 @@ def make_pos_bin_trial_matrices(arr, pos, tstart, tstop,method = 'mean',bin_size
     # print('pos bin',tstart_inds.shape,tstop_inds.shape,ntrials)
 
     #ntrials = np.sum(tstart)
-    bin_edges = np.arange(0,450+bin_size,bin_size)
+    bin_edges = np.arange(0,465+bin_size,bin_size)
     bin_centers = bin_edges[:-1]+bin_size/2
     bin_edges = bin_edges.tolist()
     #print(len(bin_edges),bin_centers.shape)
