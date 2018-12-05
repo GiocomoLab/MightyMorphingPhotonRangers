@@ -4,6 +4,7 @@ import scipy as sp
 import scipy.stats
 import scipy.io
 import scipy.interpolate
+import scipy.signal
 from random import randrange
 import sqlite3 as sql
 import matplotlib.pyplot as plt
@@ -95,7 +96,7 @@ def load_ca_mat(fname,fov = [512,796]):
                 ca_dat[key] = ca_dat[key].T
     return ca_dat
 
-def load_scan_sess(sess):
+def load_scan_sess(sess,medfilt=True):
     VRDat = behavior_dataframe(sess['data file'],scanmats=sess['scanmat'],concat=False)
 
     # load imaging
@@ -106,6 +107,9 @@ def load_scan_sess(sess):
         C = ca_dat['C'][info['frame'][0]-1:info['frame'][-1]]
     except:
         C = ca_dat['C_keep'][info['frame'][0]-1:info['frame'][-1]]
+
+    for j in range(C.shape[1]):
+        C[:,j]=sp.signal.medfilt(C[:,j],kernel_size=13)
     #print('C', C.shape)
     #print('repeat num ca frames', info['frame'][-1]-info['frame'][0]+1)
     #print('first last index',info['frame'][0],info['frame'][-1])

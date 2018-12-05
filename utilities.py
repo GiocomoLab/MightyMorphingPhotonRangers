@@ -16,6 +16,37 @@ import os.path
 from astropy.convolution import convolve, Gaussian1DKernel
 
 
+class LOTrialO:
+    def __init__(self,starts,stops,N):
+        self.train_mask = np.zeros([N,])
+        self.test_mask = np.zeros([N,])
+        self.c = 0
+        self.starts = starts
+        self.stops = stops
+        self.N = N
+
+    def next(self):
+        if self.c<len(self.starts):
+            self.train_mask *= 0
+            self.test_mask *= 0
+            for t,(start,stop) in enumerate(zip(self.starts,self.stops)):
+                if t == self.c:
+                    self.test_mask[start:stop]+=1
+                else:
+                    self.train_mask[start:stop]+=1
+            self.c+=1
+            return self.train_mask>0,self.test_mask>0
+        else:
+            return None, None
+
+
+def make_spline_basis(x,knots=np.arange(-.2,1,.34)):
+    '''make cubic spline basis functions'''
+    knotfunc = lambda k: np.power(np.multiply(x-k,(x-k)>0),3)
+    spline_basis_list = [knotfunc(k) for k in knots.tolist()]
+    spline_basis_list += [np.ones(x.shape[0]),x,np.power(x,2)]
+    return np.array(spline_basis_list).T
+
 def correct_trial_mask(rewards,starts,stops,N):
     pcnt = np.zeros([N,])
     # get correct trials
@@ -32,7 +63,7 @@ def lick_positions(licks,position):
     return lickpos
 
 
-def rate_map(C,position,bin_size=5,min_pos = 0, max_pos=465):
+def rate_map(C,position,bin_size=5,min_pos = 0, max_pos=450):
     '''non-normalized rate map E[df/F]|_x '''
     bin_edges = np.arange(min_pos,max_pos+bin_size,bin_size).tolist()
     if len(C.shape) ==1:
@@ -61,7 +92,7 @@ def make_pos_bin_trial_matrices(arr, pos, tstart, tstop,method = 'mean',bin_size
     # print('pos bin',tstart_inds.shape,tstop_inds.shape,ntrials)
 
     #ntrials = np.sum(tstart)
-    bin_edges = np.arange(0,465+bin_size,bin_size)
+    bin_edges = np.arange(0,450+bin_size,bin_size)
     bin_centers = bin_edges[:-1]+bin_size/2
     bin_edges = bin_edges.tolist()
     #print(len(bin_edges),bin_centers.shape)

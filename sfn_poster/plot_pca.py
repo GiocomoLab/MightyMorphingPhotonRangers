@@ -29,53 +29,61 @@ def plot_pca(C,VRDat,pcnt):
     pos = VRDat.loc[trialMask,'pos']._values
     pos = pos[::5]
 
-    ax=f.add_subplot(121,projection='3d')
+    time = VRDat.loc[trialMask,'time']._values
+    time = time[::5]
+
+
+    ax=f.add_subplot(131,projection='3d')
     s_cxt=ax.scatter(XX[:,0],XX[:,1],XX[:,2],c=morph,cmap='cool',s=2)
 
 
-    aax = f.add_subplot(122,projection='3d')
+    aax = f.add_subplot(132,projection='3d')
     s_pos=aax.scatter(XX[:,0],XX[:,1],XX[:,2],c=pos,cmap='magma',s=2)
 
-    return f,[ax, aax]
+    aaax = f.add_subplot(133,projection='3d')
+    s_pos=aaax.scatter(XX[:,0],XX[:,1],XX[:,2],c=time,cmap='viridis',s=2)
 
-if __name__ == '__main__':
-    mice = ['4139190.3','4139212.2','4139212.4','4139219.2','4139219.3','4139224.2','4139224.3','4139224.5']
-    #mice = ['4139212.2','4139219.2','4139219.3','4139224.2','4139224.3','4139224.5']
-    #mice = ['4139190.3']
-    df = pp.load_session_db()
-    df = df[df['RewardCount']>20]
-    df = df[df['Imaging']==1]
-    df = df.sort_values(['MouseName','DateTime','SessionNumber'])
+    return f,[ax, aax, aaax]
 
-
-
-    for mouse in mice:
-
-        dirbase = "G:\\My Drive\\Figures\\TwoTower\\SFN2018\\PCA\\%s\\" % mouse
-        try:
-            os.makedirs(dirbase)
-        except:
-            print("directory already made")
+# if __name__ == '__main__':
+mice = ['4139190.1','4139190.3','4139212.2','4139212.4','4139219.2','4139219.3','4139224.2','4139224.3','4139224.5']
+#mice = ['4139212.2','4139219.2','4139219.3','4139224.2','4139224.3','4139224.5']
+#mice = ['4139190.3']
+df = pp.load_session_db()
+df = df[df['RewardCount']>20]
+df = df[df['Imaging']==1]
+df = df.sort_values(['MouseName','DateTime','SessionNumber'])
 
 
 
-        df_mouse = df[df['MouseName'].str.match(mouse)]
-        df_sess = df_mouse[df_mouse['Track'].str.match('TwoTower_noTimeout') | df_mouse['Track'].str.match('TwoTower_Timeout')]
-        for i in range(df_sess.shape[0]):
-            try:
-                fname = "%s\\%s_%s_%d_" % (dirbase,mouse,df_sess['DateFolder'].iloc[i],df_sess['SessionNumber'].iloc[i])
-                print(fname)
-                VRDat,C,Cd, S, A = pp.load_scan_sess(df_sess.iloc[i])
-                trial_info, tstart_inds, teleport_inds = u.by_trial_info(VRDat)
-                pcnt = np.zeros([VRDat.shape[0],])
-                for i,(start,stop) in enumerate(zip(tstart_inds,teleport_inds)):
-                    pcnt[start:stop] = int(trial_info['rewards'][i]>0)
+for mouse in mice:
 
-                f,ax = plot_pca(Cd,VRDat,pcnt)
-                f.savefig(fname+"_pca.png",format='png')
-                f.savefig(fname+"_pca.svg",format='svg')
-                #Cd_z = sp.stats.zscore(Cd,axis=0)
-                #ff,aax = plot_pca(Cd_z,VRDat)
-                #ff.savefig(fname+"_zpca.pdf",format='pdf')
-            except:
-                pass
+    dirbase = "G:\\My Drive\\Figures\\TwoTower\\PCA\\%s\\" % mouse
+    try:
+        os.makedirs(dirbase)
+    except:
+        print("directory already made")
+
+
+
+    df_mouse = df[df['MouseName'].str.match(mouse)]
+    df_sess = df_mouse[df_mouse['Track'].str.match('TwoTower_noTimeout') | df_mouse['Track'].str.match('TwoTower_Timeout')]
+    for i in range(df_sess.shape[0]):
+        # try:
+            fname = "%s\\%s_%s_%d_" % (dirbase,mouse,df_sess['DateFolder'].iloc[i],df_sess['SessionNumber'].iloc[i])
+            print(fname)
+            VRDat,C,Cd, S, A = pp.load_scan_sess(df_sess.iloc[i])
+            trial_info, tstart_inds, teleport_inds = u.by_trial_info(VRDat)
+            pcnt = np.zeros([VRDat.shape[0],])
+            for i,(start,stop) in enumerate(zip(tstart_inds,teleport_inds)):
+                pcnt[start:stop] = int(trial_info['rewards'][i]>0)
+
+            f,ax = plot_pca(Cd,VRDat,pcnt)
+            print("save")
+            f.savefig(fname+"_pca.png",format='png')
+            f.savefig(fname+"_pca.svg",format='svg')
+            #Cd_z = sp.stats.zscore(Cd,axis=0)
+            #ff,aax = plot_pca(Cd_z,VRDat)
+            #ff.savefig(fname+"_zpca.pdf",format='pdf')
+        # except:
+            # pass

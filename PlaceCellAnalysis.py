@@ -15,10 +15,13 @@ import matplotlib.gridspec as gridspec
 
 
 
-def single_session(sess, C= None, VRDat = None, A=None,savefigs = False,fbase=None):
+def single_session(sess, C= None, VRDat = None, A=None,savefigs = False,fbase=None,deconv=False):
     # load calcium data and aligned vr
     if (C is None) and (VRDat is None) and (A is None):
         VRDat, C, Cd, S, A = pp.load_scan_sess(sess)
+
+    if deconv:
+        C=S
 
     # get trial by trial info
     trial_info, tstart_inds, teleport_inds = u.by_trial_info(VRDat)
@@ -28,7 +31,7 @@ def single_session(sess, C= None, VRDat = None, A=None,savefigs = False,fbase=No
 
     # find place cells individually on odd and even trials
     # keep only cells with significant spatial information on both
-    masks, FR, SI = place_cells_calc(C, VRDat['pos']._values,trial_info, VRDat['tstart']._values, VRDat['teleport']._values)
+    masks, FR, SI = place_cells_calc(C, VRDat['pos']._values,trial_info, VRDat['tstart']._values, VRDat['teleport']._values,split_halves=False)
 
     # plot place cells by morph
     f_pc, ax_pc = plot_placecells(C_morph_dict,masks)
@@ -70,10 +73,10 @@ def single_session(sess, C= None, VRDat = None, A=None,savefigs = False,fbase=No
     none = np.where((masks[0]==0) & (masks[1]==0))[0]
     m0 = np.where((masks[0]==1) & (masks[1]==0))[0]
     m1 = np.where((masks[0]==0) & (masks[1]==1))[0]
-    tvals = np.zeros([A.shape[1],])
-    tvals[both]=.01
-    tvals[m0]=-1
-    tvals[m1]=1
+    #tvals = np.zeros([A.shape[1],])
+    #tvals[both]=.01
+    #tvals[m0]=-1
+    #tvals[m1]=1
 
     # reward zone score
 
@@ -166,7 +169,7 @@ def spatial_info(frmap,occupancy):
     SI = []
     #p_map = np.zeros(frmap.shape)
     for i in range(ncells):
-        p_map = gaussian_filter(frmap[:,i],2)
+        p_map = gaussian_filter(frmap[:,i],3)+.001
         p_map /= p_map.sum()
         denom = np.multiply(p_map,occupancy).sum()
 
@@ -219,7 +222,7 @@ def place_cells_calc(C, position, trial_info, tstart_inds, teleport_inds,split_h
         SI[m]['odd'] = spatial_info(FR[m]['odd'],occ_o)
         SI[m]['even'] = spatial_info(FR[m]['even'],occ_e)
 
-
+        print(SI[m]['all'])
 
         if split_halves:
             p_e, shuffled_SI = spatial_info_perm_test(SI[m]['even'],C,position,tstart_morph_dict[m][1::2],teleport_morph_dict[m][1::2],nperms=100)
