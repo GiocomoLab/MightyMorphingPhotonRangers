@@ -121,6 +121,23 @@ def make_pos_bin_trial_matrices(arr, pos, tstart, tstop,method = 'mean',bin_size
     # self.trial_matrices = trial_matrices
     return np.squeeze(trial_mat), np.squeeze(occ_mat), bin_edges, bin_centers
 
+def make_time_bin_trial_matrices(C,tstarts,tstops):
+
+    # find longest trial
+    N = (tstops-tstarts).max()
+    if len(C.shape)>1:
+        T = np.zeros([tstarts.shape[0],N,C.shape[1]])
+    else:
+        T = np.zeros([tstarts.shape[0],N,1])
+        C = C[:,np.newaxis]
+    T[:]=np.nan
+
+    for t,(start,stop) in enumerate(zip(tstarts.tolist(),tstops.tolist())):
+        l = stop-start
+        T[t,:l,:]=C[start:stop,:]
+    return T
+
+
 def cnmf_com(A,d1,d2,d3):
     '''returns center of mass of cells given spatial footprints and native dimensions'''
 

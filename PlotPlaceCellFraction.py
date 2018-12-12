@@ -23,7 +23,7 @@ def getfrac():
     frac={}
     for mouse in mice:
             frac[mouse]={}
-            dirbase = "G:\\My Drive\\Figures\\TwoTower\\SFN2018\\PlaceCells\\%s\\" % mouse
+            dirbase = "G:\\My Drive\\Figures\\TwoTower\\COSYNE2019\\PlaceCells\\Cthr\\%s\\" % mouse
 
             df_mouse = df[df['MouseName'].str.match(mouse)]
             df_sess = df_mouse[df_mouse['Track'].str.match('TwoTower_noTimeout') | df_mouse['Track'].str.match('TwoTower_Timeout')]

@@ -192,6 +192,7 @@ def place_cells_calc(C, position, trial_info, tstart_inds, teleport_inds,split_h
     '''get masks for significant place cells that have significant place info
     in both even and odd trials'''
 
+    thr = .99#.95
     C_trial_mat, occ_trial_mat, edges,centers = u.make_pos_bin_trial_matrices(C,position,tstart_inds,teleport_inds)
     C_morph_dict = u.trial_type_dict(C_trial_mat,trial_info['morphs'])
     occ_morph_dict = u.trial_type_dict(occ_trial_mat,trial_info['morphs'])
@@ -230,10 +231,10 @@ def place_cells_calc(C, position, trial_info, tstart_inds, teleport_inds,split_h
             #for i in range(SI[m]['all'].shape[0]):
             #    print("%d: SI odd %.2E SI even %.2E, p_o %.2E p_e %.2E m %r" %(i,SI[m]['odd'][i],SI[m]['even'][i],p_e[i],p_o[i],(p_e[i]>.95) * (p_o[i]>.95)))
 
-            masks[m]=np.multiply(p_e>.95,p_o>.95)
+            masks[m]=np.multiply(p_e>thr,p_o>thr)
         else:
             p_all, shuffled_SI = spatial_info_perm_test(SI[m]['all'],C,position,tstart_morph_dict[m],teleport_morph_dict[m],nperms=100)
-            masks[m] = p_all>.95
+            masks[m] = p_all>thr
 
     return masks, FR, SI
 

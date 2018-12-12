@@ -39,7 +39,7 @@ class empirical_density:
         y_inds = np.maximum(0,np.minimum(y_inds,self.H_smooth.shape[1]))
         return self.H_smooth[x_inds,y_inds]
 
-def transition_prob_matrix(x,binsize=5):
+def transition_prob_matrix(x,binsize=5,sig=4):
     '''calculate transition proabibilities'''
     # bin positions in 10 cm
     bin_edges = [0]
@@ -61,7 +61,7 @@ def transition_prob_matrix(x,binsize=5):
         XX[next_inds,b] = bcount/bcount.sum()
 
     XX = np.minimum(XX+.0001,.9999)
-    XX_smooth = gaussian_filter1d(XX,4,axis=0)
+    XX_smooth = gaussian_filter1d(XX,sig,axis=0)
     for b in np.unique(x_binned).tolist():
         XX_smooth[:,b]/=XX_smooth[:,b].sum()
 
@@ -343,7 +343,7 @@ class single_session:
 
 
 
-    def plot_decoding(self,decode_dict,rzone0=[250,315],rzone1=[350,415],save=False):
+    def plot_decoding(self,decode_dict,rzone0=[250,315],rzone1=[350,415],save=False,cellsort=None):
         rzone0 = [i/5 for i in rzone0]
         rzone1 = [i/5 for i in rzone1]
         if save:
@@ -351,6 +351,9 @@ class single_session:
                 os.makedirs("%s\\decoding" % self.prefix)
             except:
                 print("error making directory")
+
+        if cellsort is None:
+            cellsort = np.arange(decode_dict['cell i'].shape[1])
 
         for t,(start,stop) in enumerate(zip(self.tstarts.tolist(),self.teleports.tolist())):
 
@@ -383,38 +386,107 @@ class single_session:
             aax.set_ylim([-.2,1.2])
 
             aaax= f.add_subplot(gs[7:,:],sharex=ax)
-            aaax.imshow(decode_dict['cell i'][start:stop,:].T,cmap = 'cool',aspect='auto',vmin=0,vmax=1)
+            aaax.imshow(decode_dict['cell i'][start:stop,cellsort].T,cmap = 'cool',aspect='auto',vmin=0,vmax=1)
             if save:
-                f.savefig("%s\\decoding\\trial%d_morph%2f_reward%d.pdf" % (prefix,t,self.trial_info['morphs'][t],int(self.trial_info['rewards'][t])),format='pdf')
+                f.savefig("%s\\decoding\\trial%d_morph%2f_reward%d.png" % (self.prefix,t,self.trial_info['morphs'][t],int(self.trial_info['rewards'][t])),format='png')
 
 
-    def plot_llr(self,LLR):
+    def plot_llr(self,LLR,save=False):
 
-        f_pos,ax_pos = plt.subplots(1,5,figsize=[20,5])
-        ff_pos,aax_pos = plt.subplots()
-        f_time,ax_time = plt.subplots(1,5,figsize=[20,5])
-        ff_time,aax_time = plt.subplots()
-        for i,(start,stop,m,r)  in enumerate(zip(self.tstarts.tolist(),self.teleports.tolist(),self.trial_info['morphs'].tolist(),self.trial_info['rewards'].tolist())):
+        keys = np.unique(self.trial_info['morphs'])
+        nm = keys.shape[0]
+        # pos binned data
+        llr_pos,occ,edges,centers = u.make_pos_bin_trial_matrices(LLR,self.pos,self.tstarts,self.teleports)
 
+        # by morph means
+        d_pos = u.trial_type_dict(llr_pos,self.trial_info['morphs'])
+
+
+        # time-binned data
+        llr_time = u.make_time_bin_trial_matrices(LLR,self.tstarts,self.teleports)
+
+        # by morph means
+        d_time = u.trial_type_dict(llr_time,self.trial_info['morphs'])
+
+        mu_pos = np.zeros([keys.shape[0],llr_pos.shape[1]])
+        sem_pos = np.zeros([keys.shape[0],llr_pos.shape[1]])
+        mu_time = np.zeros([keys.shape[0],llr_time.shape[1]])
+        sem_time = np.zeros([keys.shape[0],llr_time.shape[1]])
+        for j,k in enumerate(keys):
+            mu_pos[j,:] = np.nanmean(d_pos[k],axis=0)
+            sem_pos[j,:] = np.nanstd(d_pos[k],axis=0)
+            mu_time[j,:] = np.nanmean(d_time[k],axis=0)
+            sem_time[j,:] = np.nanstd(d_time[k],axis=0)
+
+        # actually plot stuff
+        f_mp,ax_mp = plt.subplots()
+        f_mt,ax_mt = plt.subplots()
+        time = np.arange(0,mu_time.shape[1])*1/15.46
+        for z in range(nm):
+            # for zz in range(5):
+                ax_mp.plot(centers,mu_pos[z,:],color=plt.cm.cool(keys[z]))
+                ax_mt.plot(time,mu_time[z,:],color=plt.cm.cool(keys[z]))
+
+                ax_mp.fill_between(centers,mu_pos[z,:]+sem_pos[z,:],y2=mu_pos[z,:]-sem_pos[z,:],
+                                color=plt.cm.cool(keys[z]),alpha=.4)
+                ax_mt.fill_between(time,mu_time[z,:]+sem_time[z,:],y2=mu_time[z,:]-sem_time[z,:],
+                                color=plt.cm.cool(keys[z]),alpha=.4)
+
+        ax_mp.set_xlabel('position')
+        ax_mp.set_ylabel('LLR')
+        ax_mt.set_xlabel('time')
+        ax_mt.set_ylabel('LLR')
+
+        # ff_pos,aax_pos = plt.subplots()
+        f_pos,ax_pos = plt.subplots(1,nm,figsize=[20,5])
+        f_time,ax_time = plt.subplots(1,nm,figsize=[20,5])
+        # ff_time,aax_time = plt.subplots()
+        for i,(start,stop,m,r)  in enumerate(zip(self.tstarts.tolist(),self.teleports.tolist(),
+                self.trial_info['morphs'].tolist(),self.trial_info['rewards'].tolist())):
+            # print(start,stop,m,r,wj,bj)
             self._single_line_llr_multiax(self.pos[start:stop],LLR[start:stop],m,r,ax_pos)
-            ax_pos[-1].set_ylabel('position')
+
 
             self._single_line_llr_multiax(np.arange(stop-start)*1./15.46,LLR[start:stop],m,r,ax_time,xlim=[0,250])
-            ax_time[-1].set_ylabel('time')
 
-            if r>0:
-                aax_pos.plot(self.pos[start:stop],LLR[start:stop],color=plt.cm.cool(np.float(m)),alpha=.5)
-                aax_time.plot(np.arange(stop-start)*1./15.46,LLR[start:stop],color=plt.cm.cool(np.float(m)),alpha=.5)
-            else:
-                aax_pos.plot(self.pos[start:stop],LLR[start:stop],color='black',alpha=.5)
-                aax_time.plot(np.arange(stop-start)*1./15.46,LLR[start:stop],color='black',alpha=.5)
-        return (f_pos,ax_pos), (ff_pos,aax_pos), (f_time,ax_time), (ff_time,aax_time)
+
+            # if r>0:
+            #     aax_pos.plot(self.pos[start:stop],LLR[start:stop],color=plt.cm.cool(np.float(m)),alpha=.5)
+            #     aax_time.plot(np.arange(stop-start)*1./15.46,LLR[start:stop],color=plt.cm.cool(np.float(m)),alpha=.5)
+            # else:
+            #     aax_pos.plot(self.pos[start:stop],LLR[start:stop],color='black',alpha=.5)
+            #     aax_time.plot(np.arange(stop-start)*1./15.46,LLR[start:stop],color='black',alpha=.5)
+
+        ax_pos[0].set_xlabel('position')
+        # aax_pos.set_xlabel('position')
+        ax_time[0].set_xlabel('time')
+        # aax_time.set_xlabel('time')
+        for z in [0, -1]:
+            for a in range(nm):
+
+                ax_pos[a].fill_between(centers,mu_pos[z,:]+sem_pos[z,:],y2=mu_pos[z,:]-sem_pos[z,:],
+                            color=plt.cm.cool(keys[z]),alpha=.4)
+                ax_time[a].fill_between(time,mu_time[z,:]+sem_time[z,:],y2=mu_time[z,:]-sem_time[z,:],
+                            color=plt.cm.cool(keys[z]),alpha=.4)
+
+        if save:
+            try:
+                os.makedirs(self.prefix)
+            except:
+                pass
+            f_mp.savefig(os.path.join(self.prefix,"LLR_position.png"),format="png")
+            f_mt.savefig(os.path.join(self.prefix,"LLR_time.png"),format="png")
+            f_pos.savefig(os.path.join(self.prefix,"LLR_pos_st.png"),format="png")
+            f_time.savefig(os.path.join(self.prefix,"LLR_time_st.png"),format="png")
+
+        return (f_mp,ax_mp),(f_mt,ax_mt),(f_pos,ax_pos),(f_time,ax_time) #, (ff_pos,aax_pos), (f_time,ax_time), (ff_time,aax_time)
         # edit axes
 
 
 
 
-    def _single_line_llr_multiax(self,x,y,m,r,ax,lw=.5,ylim=[-100,100],xlim=[0,460]):
+    def _single_line_llr_multiax(self,x,y,m,r,ax,lw=.5,
+            ylim=[-100,100],xlim=[0,460]):
         if r>0:
 
             if m == 0:
@@ -426,7 +498,7 @@ class single_session:
             elif m == .75:
                 ax[3].plot(x,y,color=plt.cm.cool(m),linewidth=lw)
             elif m == 1.:
-                ax[4].plot(x,y,color=plt.cm.cool(m),linewidth=lw)
+                ax[-1].plot(x,y,color=plt.cm.cool(m),linewidth=lw)
         else:
             if m == 0:
                 ax[0].plot(x,y,color='black',linewidth=lw,alpha=.6)
@@ -437,7 +509,28 @@ class single_session:
             elif m == .75:
                 ax[3].plot(x,y,color='black',linewidth=lw,alpha=.6)
             elif m == 1.:
-                ax[4].plot(x,y,color='black',linewidth=lw,alpha=.6)
+                ax[-1].plot(x,y,color='black',linewidth=lw,alpha=.6)
+
+    def confusion_matrix(self,decode_dict,save=False):
+        d_trial_mat, tr, edges, centers = u.make_pos_bin_trial_matrices(decode_dict['pop ix'],self.pos,self.tstarts,self.teleports)
+        d_m_dict = u.trial_type_dict(d_trial_mat,self.trial_info['morphs'])
+
+        keys = np.unique(self.trial_info['morphs'])
+        c = np.zeros([d_trial_mat.shape[-1],d_trial_mat.shape[1]*keys.shape[0]])
+        for n,key in enumerate(keys.tolist()):
+            c[:,n*d_trial_mat.shape[1]:(n+1)*d_trial_mat.shape[1]]=np.nanmean(d_m_dict[key],axis=0).T
+
+        f,ax = plt.subplots()
+        ax.imshow(c,cmap='viridis',vmin=0,vmax=.5)
+        ax.set_xlabel('True Label')
+        ax.set_ylabel('Decoded Label')
+        if save:
+            try:
+                os.makedirs(self.prefix)
+            except:
+                pass
+            f.savefig(os.path.join(self.prefix,"confusion_matrix.png"),format="png")
+        return c, (f,ax)
 
 
 
