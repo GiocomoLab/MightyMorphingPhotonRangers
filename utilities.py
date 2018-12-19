@@ -73,7 +73,7 @@ def rate_map(C,position,bin_size=5,min_pos = 0, max_pos=450):
     occupancy = np.zeros([len(bin_edges)-1,])
     for i, (edge1,edge2) in enumerate(zip(bin_edges[:-1],bin_edges[1:])):
         if np.where((position>edge1) & (position<=edge2))[0].shape[0]>0:
-            frmap[i] = C[(position>edge1) & (position<=edge2),:].mean(axis=0)
+            frmap[i] = np.nanmean(C[(position>edge1) & (position<=edge2),:],axis=0)
             occupancy[i] = np.where((position>edge1) & (position<=edge2))[0].shape[0]
         else:
             pass
@@ -81,7 +81,8 @@ def rate_map(C,position,bin_size=5,min_pos = 0, max_pos=450):
 
 
 
-def make_pos_bin_trial_matrices(arr, pos, tstart, tstop,method = 'mean',bin_size=5,max_pos=450,perm=False):
+def make_pos_bin_trial_matrices(arr, pos, tstart, tstop,method = 'mean',bin_size=5,
+                                max_pos=450,perm=False,speed=None,speed_thr=2):
     '''make a ntrials x position x neurons tensor'''
     if tstart.shape[0]>1000: # if binary, leaving in for backwards compatibility
         tstart_inds, tstop_inds = np.where(tstart==1)[0],np.where(tstop==1)[0]
@@ -90,6 +91,10 @@ def make_pos_bin_trial_matrices(arr, pos, tstart, tstop,method = 'mean',bin_size
         tstart_inds, tstop_inds = tstart, tstop
         ntrials = tstart.shape[0]
     # print('pos bin',tstart_inds.shape,tstop_inds.shape,ntrials)
+
+    if speed is not None:
+        pos[speed<speed_thr]=-1000
+        arr[speed<speed_thr,:]=np.nan
 
     #ntrials = np.sum(tstart)
     bin_edges = np.arange(0,max_pos+bin_size,bin_size)

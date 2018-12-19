@@ -17,10 +17,10 @@ import matplotlib.gridspec as gridspec
 
 def single_session(sess, C= None, VRDat = None, A=None,
                 savefigs = False,fbase=None,deconv=False,
-                correct_only=False):
+                correct_only=False,speedThr=False):
     # load calcium data and aligned vr
     if (C is None) and (VRDat is None) and (A is None):
-        VRDat, C, Cd, S, A = pp.load_scan_sess(sess)
+        VRDat, C, S, A = pp.load_scan_sess(sess)
 
     if deconv:
         C=S
@@ -33,9 +33,14 @@ def single_session(sess, C= None, VRDat = None, A=None,
 
     # find place cells individually on odd and even trials
     # keep only cells with significant spatial information on both
-    masks, FR, SI = place_cells_calc(C, VRDat['pos']._values,trial_info,
-                    VRDat['tstart']._values, VRDat['teleport']._values,
-                    method='bootstrap',correct_only=correct_only)
+    if speedThr:
+        masks, FR, SI = place_cells_calc(C, VRDat['pos']._values,trial_info,
+                        VRDat['tstart']._values, VRDat['teleport']._values,
+                        method='bootstrap',correct_only=correct_only,speed=VRDat.speed._values)
+    else:
+        masks, FR, SI = place_cells_calc(C, VRDat['pos']._values,trial_info,
+                        VRDat['tstart']._values, VRDat['teleport']._values,
+                        method='bootstrap',correct_only=correct_only)
 
     # plot place cells by morph
     f_pc, ax_pc = plot_placecells(C_morph_dict,masks)
@@ -193,12 +198,13 @@ def spatial_info(frmap,occupancy):
 
 
 def place_cells_calc(C, position, trial_info, tstart_inds,
-                teleport_inds,method="all",pthr = .99,correct_only=False):
+                teleport_inds,method="all",pthr = .99,correct_only=False,speed=None):
     '''get masks for significant place cells that have significant place info
     in both even and odd trials'''
 
 
-    C_trial_mat, occ_trial_mat, edges,centers = u.make_pos_bin_trial_matrices(C,position,tstart_inds,teleport_inds)
+    C_trial_mat, occ_trial_mat, edges,centers = u.make_pos_bin_trial_matrices(C,position,tstart_inds,teleport_inds,speed = speed)
+
     morphs = trial_info['morphs']
     if correct_only:
         mask = trial_info['rewards']>0
