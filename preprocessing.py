@@ -74,6 +74,7 @@ def load_ca_mat(fname,fov = [512,796]):
 
     ca_dat = {}
     try:
+        #print(fname)
         with h5py.File(fname,'r') as f:
             # try:
             #     C = np.array(f['C'])
@@ -82,6 +83,7 @@ def load_ca_mat(fname,fov = [512,796]):
 
             for k,v in f.items():
                 try:
+                    #print(k)
                     if k in ('A_keep', 'A'):
                         ca_dat[k] = sp.sparse.csc_matrix((f[k]['data'],f[k]['ir'],f[k]['jc']),shape=[fov[0]*fov[1],C.shape[1]])
                     else:
@@ -126,9 +128,9 @@ def load_scan_sess(sess,medfilt=True):
 
     # print('load session',np.where(VRDat.tstart==1)[0].shape[0],np.where(VRDat.teleport==1)[0].shape[0])
     if 'A_keep' in ca_dat.keys():
-        return VRDat,C,Cd,S, ca_dat['A_keep']
+        return VRDat,C,S, ca_dat['A_keep']
     elif 'A' in ca_dat.keys():
-        return VRDat,C,Cd, S, ca_dat['A']
+        return VRDat,C, S, ca_dat['A']
 
 def load_session_db(dir = "G:\\My Drive\\"):
     '''open the sessions sqlite database and add some columns'''

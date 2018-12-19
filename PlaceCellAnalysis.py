@@ -15,7 +15,9 @@ import matplotlib.gridspec as gridspec
 
 
 
-def single_session(sess, C= None, VRDat = None, A=None,savefigs = False,fbase=None,deconv=False):
+def single_session(sess, C= None, VRDat = None, A=None,
+                savefigs = False,fbase=None,deconv=False,
+                correct_only=False):
     # load calcium data and aligned vr
     if (C is None) and (VRDat is None) and (A is None):
         VRDat, C, Cd, S, A = pp.load_scan_sess(sess)
@@ -31,7 +33,9 @@ def single_session(sess, C= None, VRDat = None, A=None,savefigs = False,fbase=No
 
     # find place cells individually on odd and even trials
     # keep only cells with significant spatial information on both
-    masks, FR, SI = place_cells_calc(C, VRDat['pos']._values,trial_info, VRDat['tstart']._values, VRDat['teleport']._values,split_halves=False)
+    masks, FR, SI = place_cells_calc(C, VRDat['pos']._values,trial_info,
+                    VRDat['tstart']._values, VRDat['teleport']._values,
+                    method='bootstrap',correct_only=correct_only)
 
     # plot place cells by morph
     f_pc, ax_pc = plot_placecells(C_morph_dict,masks)
@@ -188,17 +192,25 @@ def spatial_info(frmap,occupancy):
     return np.array(SI)
 
 
-def place_cells_calc(C, position, trial_info, tstart_inds, teleport_inds,split_halves=False):
+def place_cells_calc(C, position, trial_info, tstart_inds,
+                teleport_inds,method="all",pthr = .99,correct_only=False):
     '''get masks for significant place cells that have significant place info
     in both even and odd trials'''
 
-    thr = .99#.95
+
     C_trial_mat, occ_trial_mat, edges,centers = u.make_pos_bin_trial_matrices(C,position,tstart_inds,teleport_inds)
-    C_morph_dict = u.trial_type_dict(C_trial_mat,trial_info['morphs'])
-    occ_morph_dict = u.trial_type_dict(occ_trial_mat,trial_info['morphs'])
+    morphs = trial_info['morphs']
+    if correct_only:
+        mask = trial_info['rewards']>0
+        morphs = morphs[mask]
+        C_trial_mat = C_trial_mat[mask,:,:]
+        occ_trial_mat = occ_trial_mat[mask,:]
+
+    C_morph_dict = u.trial_type_dict(C_trial_mat,morphs)
+    occ_morph_dict = u.trial_type_dict(occ_trial_mat,morphs)
     tstart_inds, teleport_inds = np.where(tstart_inds==1)[0], np.where(teleport_inds==1)[0]
-    tstart_morph_dict = u.trial_type_dict(tstart_inds,trial_info['morphs'])
-    teleport_morph_dict = u.trial_type_dict(teleport_inds,trial_info['morphs'])
+    tstart_morph_dict = u.trial_type_dict(tstart_inds,morphs)
+    teleport_morph_dict = u.trial_type_dict(teleport_inds,morphs)
 
     # for each morph value
     FR,masks,SI = {}, {}, {}
@@ -209,32 +221,52 @@ def place_cells_calc(C, position, trial_info, tstart_inds, teleport_inds,split_h
 
         # firing rate maps
         FR[m]['all'] = np.nanmean(C_morph_dict[m],axis=0)
-        FR[m]['odd'] = np.nanmean(C_morph_dict[m][0::2,:,:],axis=0)
-        FR[m]['even'] = np.nanmean(C_morph_dict[m][1::2,:,:],axis=0)
-
-        # occupancy
-        occ_o, occ_e = occ_morph_dict[m][0::2,:].sum(axis=0), occ_morph_dict[m][1::2,:].sum(axis=0)
-        occ_o/=occ_o.sum()
-        occ_e/=occ_e.sum()
         occ_all = occ_morph_dict[m].sum(axis=0)
         occ_all /= occ_all.sum()
-
         SI[m]['all'] =  spatial_info(FR[m]['all'],occ_all)
-        SI[m]['odd'] = spatial_info(FR[m]['odd'],occ_o)
-        SI[m]['even'] = spatial_info(FR[m]['even'],occ_e)
+        if method == 'split_halves':
+            FR[m]['odd'] = np.nanmean(C_morph_dict[m][0::2,:,:],axis=0)
+            FR[m]['even'] = np.nanmean(C_morph_dict[m][1::2,:,:],axis=0)
 
-        print(SI[m]['all'])
+            # occupancy
+            occ_o, occ_e = occ_morph_dict[m][0::2,:].sum(axis=0), occ_morph_dict[m][1::2,:].sum(axis=0)
+            occ_o/=occ_o.sum()
+            occ_e/=occ_e.sum()
 
-        if split_halves:
+
+
+            SI[m]['odd'] = spatial_info(FR[m]['odd'],occ_o)
+            SI[m]['even'] = spatial_info(FR[m]['even'],occ_e)
+
+
             p_e, shuffled_SI = spatial_info_perm_test(SI[m]['even'],C,position,tstart_morph_dict[m][1::2],teleport_morph_dict[m][1::2],nperms=100)
             p_o, shuffled_SI = spatial_info_perm_test(SI[m]['odd'],C,position,tstart_morph_dict[m][0::2],teleport_morph_dict[m][0::2], nperms = 100 ) #,shuffled_SI=shuffled_SI)
-            #for i in range(SI[m]['all'].shape[0]):
-            #    print("%d: SI odd %.2E SI even %.2E, p_o %.2E p_e %.2E m %r" %(i,SI[m]['odd'][i],SI[m]['even'][i],p_e[i],p_o[i],(p_e[i]>.95) * (p_o[i]>.95)))
 
-            masks[m]=np.multiply(p_e>thr,p_o>thr)
+
+            masks[m]=np.multiply(p_e>pthr,p_o>pthr)
+
+        elif method == 'bootstrap':
+            n_boots=25
+            SI_bs = np.zeros([n_boots,C.shape[1]])
+            print("start bootstrap")
+            for b in range(n_boots):
+                # pick a random subset of trials
+                ntrials = C_morph_dict[m].shape[0]
+                bs_pcnt = .6 # proportion of trials to keep
+                bs_thr = int(bs_pcnt*ntrials) # number of trials to keep
+                bs_inds = np.random.permutation(ntrials)[:bs_thr]
+                FR_bs = np.nanmean(C_morph_dict[m][bs_inds,:,:],axis=0)
+                occ_bs = occ_morph_dict[m][bs_inds,:].sum(axis=0)
+                occ_bs/=occ_bs.sum()
+                SI_bs[b,:] = spatial_info(FR_bs,occ_bs)
+            print("end bootstrap")
+            SI[m]['bootstrap']= np.median(SI_bs,axis=0).ravel()
+            p_bs, shuffled_SI = spatial_info_perm_test(SI[m]['bootstrap'],C,position,tstart_morph_dict[m],teleport_morph_dict[m],nperms=100)
+            masks[m] = p_bs>pthr
+
         else:
             p_all, shuffled_SI = spatial_info_perm_test(SI[m]['all'],C,position,tstart_morph_dict[m],teleport_morph_dict[m],nperms=100)
-            masks[m] = p_all>thr
+            masks[m] = p_all>pthr
 
     return masks, FR, SI
 
@@ -268,25 +300,56 @@ def spatial_info_perm_test(SI,C,position,tstart,tstop,nperms = 10000,shuffled_SI
 
     return p, shuffled_SI
 
-def plot_placecells(C_morph_dict,masks):
+def plot_placecells(C_morph_dict,masks,cv_sort=True):
     '''plot place place cell results'''
 
     morphs = [k for k in C_morph_dict.keys() if isinstance(k,np.float64)]
     f,ax = plt.subplots(2,len(morphs),figsize=[5*len(morphs),15])
 
     getSort = lambda fr : np.argsort(np.argmax(np.squeeze(np.nanmean(fr,axis=0)),axis=0))
-    sort0 = getSort(C_morph_dict[0][:,:,masks[0]])
-    #print(masks[0].shape,sort0.shape)
-    #print(sort0)
-    sort1 = getSort(C_morph_dict[1][:,:,masks[1]])
+
+    if cv_sort:
+        ntrials0 = C_morph_dict[0].shape[0]
+        sort_trials_0 = np.random.permutation(ntrials0)
+        ht0 = int(ntrials0/2)
+        arr0 = C_morph_dict[0][:,:,masks[0]]
+        arr0 = arr0[sort_trials_0[:ht0],:,:]
+        sort0 = getSort(arr0)
+
+        ntrials1 = C_morph_dict[1].shape[0]
+        ht1 = int(ntrials1/2)
+        sort_trials_1 = np.random.permutation(ntrials1)
+        arr1= C_morph_dict[1][:,:,masks[1]]
+        arr1 = arr1[sort_trials_1[:ht1],:,:]
+        sort1 = getSort(arr1)
+
+
+    else:
+        sort0 = getSort(C_morph_dict[0][:,:,masks[0]])
+        sort1 = getSort(C_morph_dict[1][:,:,masks[1]])
+
 
     for i,m in enumerate(morphs):
-        fr = np.squeeze(np.nanmean(C_morph_dict[m],axis=0))
-        fr_n = np.copy(fr)
-        for j in range(fr.shape[1]):
-            fr_n[:,j] = gaussian_filter1d(fr[:,j]/fr[:,j].max(),2)
+        if cv_sort:
+            if m ==0:
+                fr_n0 = np.squeeze(np.nanmean(C_morph_dict[m][sort_trials_0[ht0:],:,:],axis=0))
+                fr_n1 = np.squeeze(np.nanmean(C_morph_dict[m],axis=0))
+            elif m==1:
+                fr_n1 = np.squeeze(np.nanmean(C_morph_dict[m][sort_trials_1[ht1:],:,:],axis=0))
+                fr_n0 = np.squeeze(np.nanmean(C_morph_dict[m],axis=0))
+            else:
+                fr_n0 = np.squeeze(np.nanmean(C_morph_dict[m],axis=0))
+                fr_n1 = np.squeeze(np.nanmean(C_morph_dict[m],axis=0))
+        else:
+            fr_n0 = np.squeeze(np.nanmean(C_morph_dict[m],axis=0))
+            fr_n1 = np.squeeze(np.nanmean(C_morph_dict[m],axis=0))
+
+
+        for j in range(fr_n0.shape[1]):
+            fr_n0[:,j] = gaussian_filter1d(fr_n0[:,j]/fr_n0[:,j].max(),2)
+            fr_n1[:,j] = gaussian_filter1d(fr_n1[:,j]/fr_n1[:,j].max(),2)
             #fr_n[:,j] = gaussian_filter1d(fr[:,j],2)
-        fr_n0, fr_n1 = fr_n[:,masks[0]], fr_n[:,masks[1]]
+        fr_n0, fr_n1 = fr_n0[:,masks[0]], fr_n1[:,masks[1]]
         fr_n0, fr_n1 = fr_n0[:,sort0], fr_n1[:,sort1]
         ax[0,i].imshow(fr_n0.T,aspect='auto',cmap='Greys')
         ax[1,i].imshow(fr_n1.T,aspect='auto',cmap='Greys')

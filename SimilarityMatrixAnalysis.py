@@ -13,7 +13,8 @@ import matplotlib.gridspec as gridspec
 
 
 
-def single_session(sess, C= None, VRDat = None, zscore = False, spikes = False, cell_normalize = False,corr=True,bootstrap=True,mask = None):
+def single_session(sess, C= None, VRDat = None, zscore = False, spikes = False,
+                    cell_normalize = False,corr=True,bootstrap=True,mask = None,correct_only=False):
     '''calculate similarity matrices, average within the morphs and plot results'''
     # load calcium data and aligned vr
     if (C is None) or (VRDat is None):
@@ -26,20 +27,25 @@ def single_session(sess, C= None, VRDat = None, zscore = False, spikes = False, 
     trial_info, tstart_inds, teleport_inds = u.by_trial_info(VRDat)
     # print("sim script",tstart_inds.shape,teleport_inds.shape)
     C_trial_mat, occ_trial_mat, edges,centers = u.make_pos_bin_trial_matrices(C,VRDat['pos']._values,VRDat['tstart']._values,VRDat['teleport']._values)
+    morphs = trial_info['morphs']
+    if correct_only:
+        mask = np.multiply(morphs!=.5,trial_info['rewards']>0)
+        C_trial_mat = C_trial_mat[mask,:,:]
+        morphs = morphs[mask]
     # print("trials",C_trial_mat.shape)
-    C_morph_dict = u.trial_type_dict(C_trial_mat,trial_info['morphs'])
+    C_morph_dict = u.trial_type_dict(C_trial_mat,morphs)
 
-    mlist = np.unique(np.sort(trial_info['morphs'])).tolist()
+    mlist = np.unique(np.sort(morphs)).tolist()
     m = len(mlist)
     if bootstrap:
-        nperms = 1000
+        nperms = 50
         S_full = morph_simmat(C_morph_dict, cell_normalize = cell_normalize,corr=corr)
 
         U_full, U_full_rnorm = morph_mean_simmat(S_full,m)
 
         # allocate space
         S_bs = np.zeros([S_full.shape[0],S_full.shape[1], nperms])
-        U_bs = np.zeros([5,5,nperms])
+        U_bs = np.zeros([m,m,nperms])
 
         for p in range(nperms):
             C_tmp = {}
@@ -123,11 +129,14 @@ def morph_simmat(C_morph_dict, cell_normalize = False,corr = False ):
             nrm = np.linalg.norm(X[~np.isnan(X[:,j]),j])
 
             if nrm>0:
-                X[:,j]=(X[:,j]-np.nanmean(X[:,j].ravel()))/nrm
+                mu = np.nanmean(X[:,j]).ravel()
+                x_dm = X[:,j]-mu
+                std = np.nanstd(x_dm)
+                X[:,j]=x_dm/std #(X[:,j]-np.nanmean(X[:,j].ravel()))/nrm
             else:
                 print(nrm)
 
-    return np.matmul(X.T,X)
+    return 1/X.shape[1]*np.matmul(X.T,X)
 
 def morph_by_cell_mat(C_morph_dict,normalize = False):
     k = 0

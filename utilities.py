@@ -81,7 +81,7 @@ def rate_map(C,position,bin_size=5,min_pos = 0, max_pos=450):
 
 
 
-def make_pos_bin_trial_matrices(arr, pos, tstart, tstop,method = 'mean',bin_size=5,perm=False):
+def make_pos_bin_trial_matrices(arr, pos, tstart, tstop,method = 'mean',bin_size=5,max_pos=450,perm=False):
     '''make a ntrials x position x neurons tensor'''
     if tstart.shape[0]>1000: # if binary, leaving in for backwards compatibility
         tstart_inds, tstop_inds = np.where(tstart==1)[0],np.where(tstop==1)[0]
@@ -92,7 +92,7 @@ def make_pos_bin_trial_matrices(arr, pos, tstart, tstop,method = 'mean',bin_size
     # print('pos bin',tstart_inds.shape,tstop_inds.shape,ntrials)
 
     #ntrials = np.sum(tstart)
-    bin_edges = np.arange(0,450+bin_size,bin_size)
+    bin_edges = np.arange(0,max_pos+bin_size,bin_size)
     bin_centers = bin_edges[:-1]+bin_size/2
     bin_edges = bin_edges.tolist()
     #print(len(bin_edges),bin_centers.shape)
@@ -225,6 +225,7 @@ def by_trial_info(data,rzone0=(250,315),rzone1=(350,415)):
     morphs = np.zeros([tstart_inds.shape[0],])
     max_pos = np.zeros([tstart_inds.shape[0],])
     rewards = np.zeros([tstart_inds.shape[0],])
+    omissions = np.zeros([tstart_inds.shape[0],])
     zone0_licks = np.zeros([tstart_inds.shape[0],])
     zone1_licks = np.zeros([tstart_inds.shape[0],])
     zone0_speed = np.zeros([tstart_inds.shape[0],])
@@ -279,9 +280,13 @@ def by_trial_info(data,rzone0=(250,315),rzone1=(350,415)):
                     pcnt[i] = 0
                 elif zone1_licks[i]>0:
                     pcnt[i]=1
+
+            if max_pos[i]>rzone1[1] and rewards[i]==0:
+                omissions[i]=1
+
     trial_info = {'morphs':morphs,'max_pos':max_pos,'rewards':rewards,'zone0_licks':zone0_licks,'zone1_licks':zone1_licks,'zone0_speed':zone0_speed,
                  'zone1_speed':zone1_speed,'pcnt':pcnt,'wallJitter':wallJitter,'towerJitter':towerJitter,'bckgndJitter':bckgndJitter,'clickOn':clickOn,
-                 'pos_lick':pos_lick}
+                 'pos_lick':pos_lick,'omissions':omissions}
     return trial_info, tstart_inds, teleport_inds
 
 
