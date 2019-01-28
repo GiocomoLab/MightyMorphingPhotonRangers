@@ -151,6 +151,6 @@ def plot_speed(x,d,vals,ax=None,f=None,rzone0=(250,315),rzone1=(350,415)):
 
     ax[0].set_xlabel('Position')
     ax[0].set_ylabel('Speed cm/s')
-    ax[0].set_ylim([-20, 100])
-    ax[1].set_ylim([0, 100])
+    ax[0].set_ylim([0, 60])
+    ax[1].set_ylim([0, 60])
     return f,ax

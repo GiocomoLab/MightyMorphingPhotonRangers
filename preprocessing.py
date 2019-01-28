@@ -74,7 +74,7 @@ def load_ca_mat(fname,fov = [512,796]):
 
     ca_dat = {}
     try:
-        #print(fname)
+        print(fname)
         with h5py.File(fname,'r') as f:
             # try:
             #     C = np.array(f['C'])
@@ -82,6 +82,7 @@ def load_ca_mat(fname,fov = [512,796]):
             #     C = np.array(f['C_keep'])
 
             for k,v in f.items():
+                print(k)
                 try:
                     #print(k)
                     if k in ('A_keep', 'A'):
@@ -112,12 +113,7 @@ def load_scan_sess(sess,medfilt=True):
 
     for j in range(C.shape[1]):
         C[:,j]=sp.signal.medfilt(C[:,j],kernel_size=13)
-    #print('C', C.shape)
-    #print('repeat num ca frames', info['frame'][-1]-info['frame'][0]+1)
-    #print('first last index',info['frame'][0],info['frame'][-1])
 
-    #print('cnmf size',ca_dat['C'].shape)
-    #print('num sbx frames',os.path.getsize(sess.scanmat[:-3]+'sbx')/info['recordsPerBuffer']/info['sz'][1]*2./4. )
     Cd = ca_dat['C_dec'][info['frame'][0]-1:info['frame'][-1]]
     #print(ca_dat.keys())
     S = ca_dat['S_dec'][info['frame'][0]-1:info['frame'][-1]]
@@ -126,7 +122,6 @@ def load_scan_sess(sess,medfilt=True):
     if frame_diff>0:
         VRDat = VRDat.iloc[:-frame_diff]
 
-    # print('load session',np.where(VRDat.tstart==1)[0].shape[0],np.where(VRDat.teleport==1)[0].shape[0])
     if 'A_keep' in ca_dat.keys():
         return VRDat,C,S, ca_dat['A_keep']
     elif 'A' in ca_dat.keys():
@@ -156,8 +151,10 @@ def load_session_db(dir = "G:\\My Drive\\"):
     conn.close()
     return df
 
-def build_2P_filename(mouse,date,scene,sess,serverDir = "G:\\My Drive\\2P_Data\\TwoTower\\"):
+def build_2P_filename(mouse,date,scene,sess,serverDir = "G:\\My Drive\\2P_Data\\TwoTower\\",analysis = 's2p'):
     ''' use sessions database inputs to build appropriate filenames for 2P data'''
+
+
 
     results_fname = os.path.join(serverDir,mouse,date,scene,"%s_*%s_*_cnmf_results.mat" % (scene,sess))
     results_file=glob(results_fname)
@@ -203,10 +200,8 @@ def _VR_align_to_2P(frame,infofile, n_imaging_planes = 1):
 
     frame = frame.iloc[-numVRFrames:]
     frame['ca inds'] = caInds
-    #tmp_frame = frame.groupby(['ca inds'])
+
     ca_df = pd.DataFrame(columns = frame.columns,index=np.arange(numCaFrames))
-    #print('calcium data frame size',ca_df.shape)
-    #print(np.arange(numCaFrames).shape,np.arange(0,1/fr*numCaFrames,1/fr).shape,fr,numCaFrames)
     ca_df['time'] = np.arange(0,1/fr*numCaFrames,1/fr)[:numCaFrames]
 
     vr_time = frame['time']._values
@@ -214,12 +209,8 @@ def _VR_align_to_2P(frame,infofile, n_imaging_planes = 1):
 
     ca_time = np.arange(0,np.min([ca_df['time'].iloc[-1], vr_time[-1]])+.0001,1/fr)
     underhang = int(np.round((1/fr*numCaFrames-ca_time[-1])*fr))
-    #print(ca_df['time'].iloc[-1],ca_time[-1],vr_time[-1],ca_time.shape)
 
-    #print(ca_df.iloc[:-underhang+1].shape)
-    #f_mean = sp.interpolate.interp1d(vr_time,frame[['pos','dz']]._values,axis=0,kind='slinear')
     f_mean = sp.interpolate.interp1d(vr_time,frame['pos']._values,axis=0,kind='slinear')
-    #print(ca_time[0],ca_time[-1],vr_time[0],vr_time[-1])
     ca_df.loc[ca_df.time<=vr_time[-1],'pos'] = f_mean(ca_time)
 
     near_list = ['morph','clickOn','towerJitter','wallJitter','bckgndJitter']
@@ -237,14 +228,13 @@ def _VR_align_to_2P(frame,infofile, n_imaging_planes = 1):
     #print('cumsum',ca_cumsum[-1,:])
     #ca_df[cumsum_list].iloc[1:-underhang+1]=np.diff(ca_cumsum,axis=0
 
-    # print('ca_cumsum nans', np.sum(np.isnan(np.diff(ca_cumsum,axis=0))))
+    
     ca_df.loc[ca_df.time<=vr_time[-1],cumsum_list] = np.diff(ca_cumsum,axis=0)
-    # print('df sum', ca_df.tstart.sum(),ca_df.teleport.sum())
-    # print('df sum alt',np.where(ca_df.tstart==1)[0].shape[0],np.where(ca_df.teleport==1)[0].shape[0])
+
     # fill na here
     ca_df.loc[np.isnan(ca_df['teleport']._values),'teleport']=0
     ca_df.loc[np.isnan(ca_df['tstart']._values),'tstart']=0
-    # print('ca_cumsum nans', np.sum(np.isnan(ca_df['teleport']._values)))
+
 
     k = Gaussian1DKernel(5)
     cum_dz = convolve(np.cumsum(ca_df['dz']._values),k,boundary='extend')
@@ -255,11 +245,11 @@ def _VR_align_to_2P(frame,infofile, n_imaging_planes = 1):
     ca_df['speed']=np.array(np.divide(ca_df['dz'],np.ediff1d(ca_df['time'],to_begin=1./fr)))
     ca_df['speed'].iloc[0]=0
 
-    # ca_df['speed'] = convolve(ca_df['speed']._values,k,boundary='extend')
+
     ca_df['lick rate'] = np.array(np.divide(ca_df['lick'],np.ediff1d(ca_df['time'],to_begin=1./fr)))
     ca_df['lick rate'] = convolve(ca_df['lick rate']._values,k,boundary='extend')
     ca_df[['reward','tstart','teleport','lick','clickOn','towerJitter','wallJitter','bckgndJitter']].fillna(value=0,inplace=True)
-    # print('end df sum',np.where(ca_df.tstart==1)[0].shape[0],np.where(ca_df.teleport==1)[0].shape[0])
+
     return ca_df
 
 def _VR_interp(frame):

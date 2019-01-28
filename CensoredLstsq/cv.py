@@ -120,13 +120,13 @@ def masked_pca(data, rank, M=None, nonneg=False,maxiter=100):
 
         Vt = solver(U, data, M)
         U = solver(Vt.T, data.T, M.T).T
-        resid = np.memmap(os.path.join("E:\\","resid.dat"),dtype='float32',mode='r+',shape=tuple(data.shape))
+        resid = np.memmap(os.path.join("E:\\","resid.dat"),dtype='float32',mode='w+',shape=tuple(data.shape))
         resid[:,:] = np.dot(U, Vt) - data
         denom = M.ravel().sum()
         resid[:,:] = resid**2
         train_err = np.sqrt(np.nanmean(resid))
         #if float(iter)%10==0:
-        #print(itr,train_err)
+        print(itr,train_err)
 
 
     # return result and test/train error
