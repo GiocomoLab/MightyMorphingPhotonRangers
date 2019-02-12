@@ -99,33 +99,54 @@ def load_ca_mat(fname,fov = [512,796]):
                 ca_dat[key] = ca_dat[key].T
     return ca_dat
 
-def load_scan_sess(sess,medfilt=True):
+def load_scan_sess(sess,medfilt=True,analysis='s2p',plane=0,fneu_coeff=.7):
     VRDat = behavior_dataframe(sess['data file'],scanmats=sess['scanmat'],concat=False)
 
     # load imaging
     info = loadmat_sbx(sess['scanmat'])['info']
-    ca_dat = load_ca_mat(sess['scanfile'])
 
-    try:
-        C = ca_dat['C'][info['frame'][0]-1:info['frame'][-1]]
-    except:
-        C = ca_dat['C_keep'][info['frame'][0]-1:info['frame'][-1]]
+    if analysis == "cnmf":
+        ca_dat = load_ca_mat(sess['scanfile'])
+        try:
+            C = ca_dat['C'][info['frame'][0]-1:info['frame'][-1]]
+        except:
+            C = ca_dat['C_keep'][info['frame'][0]-1:info['frame'][-1]]
 
-    for j in range(C.shape[1]):
-        C[:,j]=sp.signal.medfilt(C[:,j],kernel_size=13)
+        for j in range(C.shape[1]):
+            C[:,j]=sp.signal.medfilt(C[:,j],kernel_size=13)
 
-    Cd = ca_dat['C_dec'][info['frame'][0]-1:info['frame'][-1]]
-    #print(ca_dat.keys())
-    S = ca_dat['S_dec'][info['frame'][0]-1:info['frame'][-1]]
-    frame_diff = VRDat.shape[0]-C.shape[0]
-    print('frame diff',frame_diff)
-    if frame_diff>0:
-        VRDat = VRDat.iloc[:-frame_diff]
+        Cd = ca_dat['C_dec'][info['frame'][0]-1:info['frame'][-1]]
+        #print(ca_dat.keys())
+        S = ca_dat['S_dec'][info['frame'][0]-1:info['frame'][-1]]
+        frame_diff = VRDat.shape[0]-C.shape[0]
+        print('frame diff',frame_diff)
+        assert (frame_diff==0), "something is wrong with aligning VR and calcium data"
+        #if frame_diff>0:
+            #VRDat = VRDat.iloc[:-frame_diff]
+        #    raise ValueError
 
-    if 'A_keep' in ca_dat.keys():
-        return VRDat,C,S, ca_dat['A_keep']
-    elif 'A' in ca_dat.keys():
-        return VRDat,C, S, ca_dat['A']
+        if 'A_keep' in ca_dat.keys():
+            return VRDat,C,S, ca_dat['A_keep']
+        elif 'A' in ca_dat.keys():
+            return VRDat,C, S, ca_dat['A']
+    elif analysis == "s2p":
+
+        folder = os.path.join(sess['s2pfolder'],'plane%i' % plane)
+
+        F= np.load(os.path.join(folder,'F.npy'))
+        Fneu = np.load(os.path.join(folder,'Fneu.npy'))
+        iscell =  np.load(os.path.join(folder,'iscell.npy'))
+        S = np.load(os.path.join(folder,'spks.npy'))
+        C = F-fneu_coeff*Fneu
+        C=C[iscell[:,0]>0,:].T
+        C=C[info['frame'][0]-1:info['frame'][-1]+1,:]
+        S=S[iscell[:,0 ]>0,:].T
+        S=S[info['frame'][0]-1:info['frame'][-1]+1,:]
+        for j in range(C.shape[1]):
+            C[:,j]=sp.signal.medfilt(C[:,j],kernel_size=13)
+        return VRDat,C,S
+    else:
+        return
 
 def load_session_db(dir = "G:\\My Drive\\"):
     '''open the sessions sqlite database and add some columns'''
@@ -140,6 +161,7 @@ def load_session_db(dir = "G:\\My Drive\\"):
                                            df['SessionNumber'].iloc[i],serverDir="%s\\VR_Data\\TwoTower\\" % dir) for i in range(df.shape[0])]
     choose_first, choose_second = lambda x: x[0], lambda x: x[1]
     twop_dir = os.path.join(dir,"2P_Data","TwoTower")
+
     df['scanfile'] = [choose_first(build_2P_filename(df['MouseName'].iloc[i],
                                         df['DateFolder'].iloc[i],
                                         df['Track'].iloc[i],
@@ -148,10 +170,27 @@ def load_session_db(dir = "G:\\My Drive\\"):
                                         df['DateFolder'].iloc[i],
                                         df['Track'].iloc[i],
                                         df['SessionNumber'].iloc[i],serverDir=twop_dir)) for i in range(df.shape[0])]
+    # add s2p filefolder
+    df['s2pfolder']=[build_s2p_folder(df.iloc[i]) for i in range(df.shape[0])]
+
     conn.close()
+
+
     return df
 
-def build_2P_filename(mouse,date,scene,sess,serverDir = "G:\\My Drive\\2P_Data\\TwoTower\\",analysis = 's2p'):
+def build_s2p_folder(df,serverDir="G:\\My Drive\\2P_Data\\TwoTower\\"):
+
+    res_folder = os.path.join(serverDir,df['MouseName'],df['DateFolder'],df['Track'],"%s_*%s_*" % (df['Track'],df['SessionNumber']),'suite2p')
+    match= glob(res_folder)
+    assert len(match)<2, "multiple matching subfolders"
+    if len(match)<1:
+        return None
+    else:
+        return match[0]
+
+
+
+def build_2P_filename(mouse,date,scene,sess,serverDir = "G:\\My Drive\\2P_Data\\TwoTower\\"):
     ''' use sessions database inputs to build appropriate filenames for 2P data'''
 
 
@@ -183,72 +222,81 @@ def build_VR_filename(mouse,date,scene,session,serverDir = "G:\\My Drive\\VR_Dat
         return file[0]
     else:
         print("%s\\%s\\%s\\%s_%s.sqlite" % (serverDir, mouse, date, scene, session))
-        raise Exception("file doesn't exist")
+        print("file doesn't exist, errors to come!!!")
+        #raise Exception("file doesn't exist")
 
 
-def _VR_align_to_2P(frame,infofile, n_imaging_planes = 1):
+def _VR_align_to_2P(frame,infofile, n_imaging_planes = 1, fix_alexs_fuckup=False):
     '''align behavior to 2P sample times using splines'''
 
     info = loadmat_sbx(infofile)['info']
-    numVRFrames = info['frame'].size
-    #print(numVRFrames)
-    caInds = np.array([int(i/n_imaging_planes) for i in info['frame']])
+    if fix_alexs_fuckup:
+        ## on Feb 6, 2019 noticed that Alex Attinger's new National Instruments board
+        ## created a floating ground on my TTL circuit, rendering it useless
+        pass
+    else:
 
-    numCaFrames = caInds[-1]-caInds[0]+1
-    #print('orig ca frame count',numCaFrames)
-    fr = info['resfreq']/info['recordsPerBuffer']
+        numVRFrames = info['frame'].size
+        #print(numVRFrames)
+        caInds = np.array([int(i/n_imaging_planes) for i in info['frame']])
 
-    frame = frame.iloc[-numVRFrames:]
-    frame['ca inds'] = caInds
+        numCaFrames = caInds[-1]-caInds[0]+1
+        #print('orig ca frame count',numCaFrames)
+        fr = info['resfreq']/info['recordsPerBuffer']
 
-    ca_df = pd.DataFrame(columns = frame.columns,index=np.arange(numCaFrames))
-    ca_df['time'] = np.arange(0,1/fr*numCaFrames,1/fr)[:numCaFrames]
+        frame = frame.iloc[-numVRFrames:]
+        print(frame.shape,caInds.shape)
+        frame['ca inds'] = caInds
 
-    vr_time = frame['time']._values
-    vr_time = vr_time - vr_time[0]
+        ca_df = pd.DataFrame(columns = frame.columns,index=np.arange(numCaFrames))
+        ca_df['time'] = np.arange(0,1/fr*numCaFrames,1/fr)[:numCaFrames]
 
-    ca_time = np.arange(0,np.min([ca_df['time'].iloc[-1], vr_time[-1]])+.0001,1/fr)
-    underhang = int(np.round((1/fr*numCaFrames-ca_time[-1])*fr))
+        vr_time = frame['time']._values
+        vr_time = vr_time - vr_time[0]
 
-    f_mean = sp.interpolate.interp1d(vr_time,frame['pos']._values,axis=0,kind='slinear')
-    ca_df.loc[ca_df.time<=vr_time[-1],'pos'] = f_mean(ca_time)
+        ca_time = np.arange(0,np.min([ca_df['time'].iloc[-1], vr_time[-1]])+.0001,1/fr)
+        underhang = int(np.round((1/fr*numCaFrames-ca_time[-1])*fr))
+        print('frame underhang',underhang)
 
-    near_list = ['morph','clickOn','towerJitter','wallJitter','bckgndJitter']
-    f_nearest = sp.interpolate.interp1d(vr_time,frame[near_list]._values,axis=0,kind='nearest')
-    ca_df.loc[ca_df.time<=vr_time[-1],near_list] = f_nearest(ca_time)
-    ca_df.fillna(method='ffill',inplace=True)
+        f_mean = sp.interpolate.interp1d(vr_time,frame['pos']._values,axis=0,kind='slinear')
+        ca_df.loc[ca_df.time<=vr_time[-1],'pos'] = f_mean(ca_time)
 
-    cumsum_list = ['dz','lick','reward','tstart','teleport']
+        near_list = ['morph','clickOn','towerJitter','wallJitter','bckgndJitter']
+        f_nearest = sp.interpolate.interp1d(vr_time,frame[near_list]._values,axis=0,kind='nearest')
+        ca_df.loc[ca_df.time<=vr_time[-1],near_list] = f_nearest(ca_time)
+        ca_df.fillna(method='ffill',inplace=True)
 
-    f_cumsum = sp.interpolate.interp1d(vr_time,np.cumsum(frame[cumsum_list]._values,axis=0),axis=0,kind='slinear')
-    ca_cumsum = np.round(np.insert(f_cumsum(ca_time),0,[0,0, 0 ,0,0],axis=0))
-    #print('cumsum',ca_cumsum[-1,:])
-    if ca_cumsum[-1,-1]<ca_cumsum[-1,-2]:
-        ca_cumsum[-1,-1]+=1
-    #print('cumsum',ca_cumsum[-1,:])
-    #ca_df[cumsum_list].iloc[1:-underhang+1]=np.diff(ca_cumsum,axis=0
+        cumsum_list = ['dz','lick','reward','tstart','teleport']
 
-    
-    ca_df.loc[ca_df.time<=vr_time[-1],cumsum_list] = np.diff(ca_cumsum,axis=0)
-
-    # fill na here
-    ca_df.loc[np.isnan(ca_df['teleport']._values),'teleport']=0
-    ca_df.loc[np.isnan(ca_df['tstart']._values),'tstart']=0
-
-
-    k = Gaussian1DKernel(5)
-    cum_dz = convolve(np.cumsum(ca_df['dz']._values),k,boundary='extend')
-    ca_df['dz'] = np.ediff1d(cum_dz,to_end=0)
+        f_cumsum = sp.interpolate.interp1d(vr_time,np.cumsum(frame[cumsum_list]._values,axis=0),axis=0,kind='slinear')
+        ca_cumsum = np.round(np.insert(f_cumsum(ca_time),0,[0,0, 0 ,0,0],axis=0))
+        #print('cumsum',ca_cumsum[-1,:])
+        if ca_cumsum[-1,-1]<ca_cumsum[-1,-2]:
+            ca_cumsum[-1,-1]+=1
+        #print('cumsum',ca_cumsum[-1,:])
+        #ca_df[cumsum_list].iloc[1:-underhang+1]=np.diff(ca_cumsum,axis=0
 
 
-    ca_df['speed'].interpolate(method='linear',inplace=True)
-    ca_df['speed']=np.array(np.divide(ca_df['dz'],np.ediff1d(ca_df['time'],to_begin=1./fr)))
-    ca_df['speed'].iloc[0]=0
+        ca_df.loc[ca_df.time<=vr_time[-1],cumsum_list] = np.diff(ca_cumsum,axis=0)
+
+        # fill na here
+        ca_df.loc[np.isnan(ca_df['teleport']._values),'teleport']=0
+        ca_df.loc[np.isnan(ca_df['tstart']._values),'tstart']=0
 
 
-    ca_df['lick rate'] = np.array(np.divide(ca_df['lick'],np.ediff1d(ca_df['time'],to_begin=1./fr)))
-    ca_df['lick rate'] = convolve(ca_df['lick rate']._values,k,boundary='extend')
-    ca_df[['reward','tstart','teleport','lick','clickOn','towerJitter','wallJitter','bckgndJitter']].fillna(value=0,inplace=True)
+        k = Gaussian1DKernel(5)
+        cum_dz = convolve(np.cumsum(ca_df['dz']._values),k,boundary='extend')
+        ca_df['dz'] = np.ediff1d(cum_dz,to_end=0)
+
+
+        ca_df['speed'].interpolate(method='linear',inplace=True)
+        ca_df['speed']=np.array(np.divide(ca_df['dz'],np.ediff1d(ca_df['time'],to_begin=1./fr)))
+        ca_df['speed'].iloc[0]=0
+
+
+        ca_df['lick rate'] = np.array(np.divide(ca_df['lick'],np.ediff1d(ca_df['time'],to_begin=1./fr)))
+        ca_df['lick rate'] = convolve(ca_df['lick rate']._values,k,boundary='extend')
+        ca_df[['reward','tstart','teleport','lick','clickOn','towerJitter','wallJitter','bckgndJitter']].fillna(value=0,inplace=True)
 
     return ca_df
 
@@ -300,8 +348,9 @@ def _VR_interp(frame):
 def _get_frame(f,fix_teleports=True):
     '''load a single session's sqlite database for behavior'''
     sess_conn = sql.connect(f)
-    frame = pd.read_sql('''SELECT time, pos, dz, morph, lick, reward, tstart, teleport, clickOn, towerJitter
-                , wallJitter, bckgndJitter FROM data''',sess_conn)
+    #frame = pd.read_sql('''SELECT time, pos, dz, morph, lick, reward, tstart, teleport, clickOn, towerJitter
+    #            , wallJitter, bckgndJitter FROM data''',sess_conn)
+    frame = pd.read_sql('''SELECT * FROM data''',sess_conn)
 
     #frame.loc[frame.dz>.2,'dz']=.2
     k = Gaussian1DKernel(5)
