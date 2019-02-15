@@ -2,7 +2,7 @@ import numpy as np
 import h5py
 import scipy as sp
 import scipy.stats
-import scipy.io
+import scipy.io as spio
 import scipy.interpolate
 import scipy.signal
 from random import randrange
@@ -18,55 +18,74 @@ from astropy.convolution import convolve, Gaussian1DKernel
 import h5py
 
 def loadmat_sbx(filename):
-    """
+    '''
     this function should be called instead of direct spio.loadmat
-
     as it cures the problem of not properly recovering python dictionaries
     from mat files. It calls the function check keys to cure all entries
     which are still mat-objects
-    """
-    print(filename)
-    try:
-        data_ = sp.io.loadmat(filename, struct_as_record=False, squeeze_me=True)
-        return _check_keys(data_)
-    except:
-        data_ = {}
-        with h5py.File(filename,'r') as f:
-            for k,v in f.items():
-                try:
-                    data_[k]=np.array(v)
-                except:
-                    data_[k]=v
-        return data_
+    '''
+    data = spio.loadmat(filename, struct_as_record=False, squeeze_me=True)
+    info = _check_keys(data)['info']
+    # Defining number of channels/size factor
+    if info['channels'] == 1:
+        info['nChan'] = 2; factor = 1
+    elif info['channels'] == 2:
+        info['nChan'] = 1; factor = 2
+    elif info['channels'] == 3:
+        info['nChan'] = 1; factor = 2
 
-
-
+     # Determine number of frames in whole file
+    info['max_idx'] = int(os.path.getsize(filename[:-4] + '.sbx')/info['recordsPerBuffer']/info['sz'][1]*factor/4-1)
+    info['fr'] = info['resfreq']/info['recordsPerBuffer']
+    return info
 
 def _check_keys(dict):
-    """
-    checks if entries in dictionary rare mat-objects. If yes todict is called to change them to nested dictionaries
-    """
+    '''
+    checks if entries in dictionary are mat-objects. If yes
+    todict is called to change them to nested dictionaries
+    '''
 
     for key in dict:
-        if isinstance(dict[key], sp.io.matlab.mio5_params.mat_struct):
+        if isinstance(dict[key], spio.matlab.mio5_params.mat_struct):
             dict[key] = _todict(dict[key])
-
     return dict
 
-
 def _todict(matobj):
-    """
+    '''
     A recursive function which constructs from matobjects nested dictionaries
-    """
+    '''
 
     dict = {}
     for strg in matobj._fieldnames:
         elem = matobj.__dict__[strg]
-        if isinstance(elem, sp.io.matlab.mio5_params.mat_struct):
+        if isinstance(elem, spio.matlab.mio5_params.mat_struct):
             dict[strg] = _todict(elem)
         else:
             dict[strg] = elem
     return dict
+#
+# def loadmat_sbx(filename):
+#     """
+#     this function should be called instead of direct spio.loadmat
+#
+#     as it cures the problem of not properly recovering python dictionaries
+#     from mat files. It calls the function check keys to cure all entries
+#     which are still mat-objects
+#     """
+#     print(filename)
+#     try:
+#         data_ = sp.io.loadmat(filename, struct_as_record=False, squeeze_me=True)
+#         return _check_keys(data_)
+#     except:
+#         data_ = {}
+#         with h5py.File(filename,'r') as f:
+#             for k,v in f.items():
+#                 try:
+#                     data_[k]=np.array(v)
+#                 except:
+#                     data_[k]=v
+#         return data_
+#
 
 
 def load_ca_mat(fname,fov = [512,796]):
@@ -103,21 +122,20 @@ def load_scan_sess(sess,medfilt=True,analysis='s2p',plane=0,fneu_coeff=.7):
     VRDat = behavior_dataframe(sess['data file'],scanmats=sess['scanmat'],concat=False)
 
     # load imaging
-    info = loadmat_sbx(sess['scanmat'])['info']
-
+    info = loadmat_sbx(sess['scanmat'])
     if analysis == "cnmf":
         ca_dat = load_ca_mat(sess['scanfile'])
         try:
-            C = ca_dat['C'][info['frame'][0]-1:info['frame'][-1]]
+            C = ca_dat['C'][1:,:]#[info['frame'][0]-1:info['frame'][-1]]
         except:
-            C = ca_dat['C_keep'][info['frame'][0]-1:info['frame'][-1]]
+            C = ca_dat['C_keep'][1:,:]#[info['frame'][0]-1:info['frame'][-1]]
 
         for j in range(C.shape[1]):
             C[:,j]=sp.signal.medfilt(C[:,j],kernel_size=13)
 
-        Cd = ca_dat['C_dec'][info['frame'][0]-1:info['frame'][-1]]
+        Cd = ca_dat['C_dec']#[info['frame'][0]-1:info['frame'][-1]]
         #print(ca_dat.keys())
-        S = ca_dat['S_dec'][info['frame'][0]-1:info['frame'][-1]]
+        S = ca_dat['S_dec']#[info['frame'][0]-1:info['frame'][-1]]
         frame_diff = VRDat.shape[0]-C.shape[0]
         print('frame diff',frame_diff)
         assert (frame_diff==0), "something is wrong with aligning VR and calcium data"
@@ -139,12 +157,12 @@ def load_scan_sess(sess,medfilt=True,analysis='s2p',plane=0,fneu_coeff=.7):
         S = np.load(os.path.join(folder,'spks.npy'))
         C = F-fneu_coeff*Fneu
         C=C[iscell[:,0]>0,:].T
-        C=C[info['frame'][0]-1:info['frame'][-1]+1,:]
+        # C=C[info['frame'][0]-1:info['frame'][-1]+1,:]
         S=S[iscell[:,0 ]>0,:].T
-        S=S[info['frame'][0]-1:info['frame'][-1]+1,:]
+        # S=S[info['frame'][0]-1:info['frame'][-1]+1,:]
         for j in range(C.shape[1]):
             C[:,j]=sp.signal.medfilt(C[:,j],kernel_size=13)
-        return VRDat,C,S
+        return VRDat,C,S,None
     else:
         return
 
@@ -226,77 +244,145 @@ def build_VR_filename(mouse,date,scene,session,serverDir = "G:\\My Drive\\VR_Dat
         #raise Exception("file doesn't exist")
 
 
-def _VR_align_to_2P(frame,infofile, n_imaging_planes = 1, fix_alexs_fuckup=False):
+def _VR_align_to_2P(vr_dframe,infofile, n_imaging_planes = 1, fix_alexs_fuckup=True):
     '''align behavior to 2P sample times using splines'''
 
-    info = loadmat_sbx(infofile)['info']
-    if fix_alexs_fuckup:
+    info = loadmat_sbx(infofile)#['info']
+    fr = info['fr'] #info['resfreq']/info['recordsPerBuffer'] # frame rate
+    lr = fr*512. # line rate
+    # if fix_alexs_fuckup:
         ## on Feb 6, 2019 noticed that Alex Attinger's new National Instruments board
-        ## created a floating ground on my TTL circuit, rendering it useless
-        pass
-    else:
-
-        numVRFrames = info['frame'].size
-        #print(numVRFrames)
-        caInds = np.array([int(i/n_imaging_planes) for i in info['frame']])
-
-        numCaFrames = caInds[-1]-caInds[0]+1
-        #print('orig ca frame count',numCaFrames)
-        fr = info['resfreq']/info['recordsPerBuffer']
-
-        frame = frame.iloc[-numVRFrames:]
-        print(frame.shape,caInds.shape)
-        frame['ca inds'] = caInds
-
-        ca_df = pd.DataFrame(columns = frame.columns,index=np.arange(numCaFrames))
-        ca_df['time'] = np.arange(0,1/fr*numCaFrames,1/fr)[:numCaFrames]
-
-        vr_time = frame['time']._values
-        vr_time = vr_time - vr_time[0]
-
-        ca_time = np.arange(0,np.min([ca_df['time'].iloc[-1], vr_time[-1]])+.0001,1/fr)
-        underhang = int(np.round((1/fr*numCaFrames-ca_time[-1])*fr))
-        print('frame underhang',underhang)
-
-        f_mean = sp.interpolate.interp1d(vr_time,frame['pos']._values,axis=0,kind='slinear')
-        ca_df.loc[ca_df.time<=vr_time[-1],'pos'] = f_mean(ca_time)
-
-        near_list = ['morph','clickOn','towerJitter','wallJitter','bckgndJitter']
-        f_nearest = sp.interpolate.interp1d(vr_time,frame[near_list]._values,axis=0,kind='nearest')
-        ca_df.loc[ca_df.time<=vr_time[-1],near_list] = f_nearest(ca_time)
-        ca_df.fillna(method='ffill',inplace=True)
-
-        cumsum_list = ['dz','lick','reward','tstart','teleport']
-
-        f_cumsum = sp.interpolate.interp1d(vr_time,np.cumsum(frame[cumsum_list]._values,axis=0),axis=0,kind='slinear')
-        ca_cumsum = np.round(np.insert(f_cumsum(ca_time),0,[0,0, 0 ,0,0],axis=0))
-        #print('cumsum',ca_cumsum[-1,:])
-        if ca_cumsum[-1,-1]<ca_cumsum[-1,-2]:
-            ca_cumsum[-1,-1]+=1
-        #print('cumsum',ca_cumsum[-1,:])
-        #ca_df[cumsum_list].iloc[1:-underhang+1]=np.diff(ca_cumsum,axis=0
+        ## created a floating ground on my TTL circuit. This caused a bunch of extra TTLs
+        ## due to unexpected grounding of the signal.
 
 
-        ca_df.loc[ca_df.time<=vr_time[-1],cumsum_list] = np.diff(ca_cumsum,axis=0)
+    orig_ttl_times = info['frame']/fr + info['line']/lr # including error ttls
+    dt_ttl = np.diff(np.insert(orig_ttl_times,0,0)) # insert zero at beginning and calculate delta ttl time
+    tmp = np.zeros(dt_ttl.shape)
+    tmp[dt_ttl<.005] = 1 # find ttls faster than 200 Hz (unrealistically fast - probably a ttl which bounced to ground)
+    # ensured outside of this script that this finds the true start ttl on every scan
+    mask = np.insert(np.diff(tmp),0,0) # find first ttl in string that were too fast
+    mask[mask<0] = 0
 
-        # fill na here
-        ca_df.loc[np.isnan(ca_df['teleport']._values),'teleport']=0
-        ca_df.loc[np.isnan(ca_df['tstart']._values),'tstart']=0
+    frames = info['frame'][mask==0] # should be the original ttls up to a 1 VR frame error
+    lines = info['line'][mask==0]
+
+    ttl_times = frames/fr + lines/lr
+    numVRFrames = frames.shape[0]
+
+    ca_df = pd.DataFrame(columns = vr_dframe.columns, index = np.arange(info['max_idx']))
+    ca_time = np.arange(0,1/fr*info['max_idx'],1/fr)
+    ca_df.loc[:,'time'] = ca_time
+    mask = ca_time>=ttl_times[0]
+
+    vr_dframe = vr_dframe.iloc[-numVRFrames:]
+    f_mean = sp.interpolate.interp1d(ttl_times,vr_dframe['pos']._values,axis=0,kind='slinear')
+    ca_df.loc[mask,'pos'] = f_mean(ca_time[mask])
+    ca_df.loc[~mask,'pos']=-500.
+
+    near_list = ['morph','clickOn','towerJitter','wallJitter','bckgndJitter']
+    f_nearest = sp.interpolate.interp1d(ttl_times,vr_dframe[near_list]._values,axis=0,kind='nearest')
+    ca_df.loc[mask,near_list] = f_nearest(ca_time[mask])
+    ca_df.fillna(method='ffill',inplace=True)
+    ca_df.loc[~mask,near_list]=-1.
+
+    cumsum_list = ['dz','lick','reward','tstart','teleport']
+
+    f_cumsum = sp.interpolate.interp1d(ttl_times,np.cumsum(vr_dframe[cumsum_list]._values,axis=0),axis=0,kind='slinear')
+    ca_cumsum = np.round(np.insert(f_cumsum(ca_time[mask]),0,[0,0, 0 ,0,0],axis=0))
+    #print('cumsum',ca_cumsum[-1,:])
+    if ca_cumsum[-1,-1]<ca_cumsum[-1,-2]:
+        ca_cumsum[-1,-1]+=1
+    #print('cumsum',ca_cumsum[-1,:])
+    #ca_df[cumsum_list].iloc[1:-underhang+1]=np.diff(ca_cumsum,axis=0
 
 
-        k = Gaussian1DKernel(5)
-        cum_dz = convolve(np.cumsum(ca_df['dz']._values),k,boundary='extend')
-        ca_df['dz'] = np.ediff1d(cum_dz,to_end=0)
+    ca_df.loc[mask,cumsum_list] = np.diff(ca_cumsum,axis=0)
+    ca_df.loc[~mask,cumsum_list] = 0.
+
+    # fill na here
+    ca_df.loc[np.isnan(ca_df['teleport']._values),'teleport']=0
+    ca_df.loc[np.isnan(ca_df['tstart']._values),'tstart']=0
 
 
-        ca_df['speed'].interpolate(method='linear',inplace=True)
-        ca_df['speed']=np.array(np.divide(ca_df['dz'],np.ediff1d(ca_df['time'],to_begin=1./fr)))
-        ca_df['speed'].iloc[0]=0
+    k = Gaussian1DKernel(5)
+    cum_dz = convolve(np.cumsum(ca_df['dz']._values),k,boundary='extend')
+    ca_df['dz'] = np.ediff1d(cum_dz,to_end=0)
 
 
-        ca_df['lick rate'] = np.array(np.divide(ca_df['lick'],np.ediff1d(ca_df['time'],to_begin=1./fr)))
-        ca_df['lick rate'] = convolve(ca_df['lick rate']._values,k,boundary='extend')
-        ca_df[['reward','tstart','teleport','lick','clickOn','towerJitter','wallJitter','bckgndJitter']].fillna(value=0,inplace=True)
+    ca_df['speed'].interpolate(method='linear',inplace=True)
+    ca_df['speed']=np.array(np.divide(ca_df['dz'],np.ediff1d(ca_df['time'],to_begin=1./fr)))
+    ca_df['speed'].iloc[0]=0
+
+
+    ca_df['lick rate'] = np.array(np.divide(ca_df['lick'],np.ediff1d(ca_df['time'],to_begin=1./fr)))
+    ca_df['lick rate'] = convolve(ca_df['lick rate']._values,k,boundary='extend')
+    ca_df[['reward','tstart','teleport','lick','clickOn','towerJitter','wallJitter','bckgndJitter']].fillna(value=0,inplace=True)
+
+
+    # else:
+    #
+    #     numVRFrames = info['frame'].size
+    #     #print(numVRFrames)
+    #     caInds = np.array([int(i/n_imaging_planes) for i in info['frame']])
+    #
+    #     numCaFrames = caInds[-1]-caInds[0]+1
+    #     #print('orig ca frame count',numCaFrames)
+    #     fr = info['resfreq']/info['recordsPerBuffer']
+    #
+    #     frame = frame.iloc[-numVRFrames:]
+    #     print(frame.shape,caInds.shape)
+    #     frame['ca inds'] = caInds
+    #
+    #     ca_df = pd.DataFrame(columns = frame.columns,index=np.arange(numCaFrames))
+    #     ca_df['time'] = np.arange(0,1/fr*numCaFrames,1/fr)[:numCaFrames]
+    #
+    #     vr_time = frame['time']._values
+    #     vr_time = vr_time - vr_time[0]
+    #
+    #     ca_time = np.arange(0,np.min([ca_df['time'].iloc[-1], vr_time[-1]])+.0001,1/fr)
+    #     underhang = int(np.round((1/fr*numCaFrames-ca_time[-1])*fr))
+    #     print('frame underhang',underhang)
+    #
+    #     f_mean = sp.interpolate.interp1d(vr_time,frame['pos']._values,axis=0,kind='slinear')
+    #     ca_df.loc[ca_df.time<=vr_time[-1],'pos'] = f_mean(ca_time)
+    #
+    #     near_list = ['morph','clickOn','towerJitter','wallJitter','bckgndJitter']
+    #     f_nearest = sp.interpolate.interp1d(vr_time,frame[near_list]._values,axis=0,kind='nearest')
+    #     ca_df.loc[ca_df.time<=vr_time[-1],near_list] = f_nearest(ca_time)
+    #     ca_df.fillna(method='ffill',inplace=True)
+    #
+    #     cumsum_list = ['dz','lick','reward','tstart','teleport']
+    #
+    #     f_cumsum = sp.interpolate.interp1d(vr_time,np.cumsum(frame[cumsum_list]._values,axis=0),axis=0,kind='slinear')
+    #     ca_cumsum = np.round(np.insert(f_cumsum(ca_time),0,[0,0, 0 ,0,0],axis=0))
+    #     #print('cumsum',ca_cumsum[-1,:])
+    #     if ca_cumsum[-1,-1]<ca_cumsum[-1,-2]:
+    #         ca_cumsum[-1,-1]+=1
+    #     #print('cumsum',ca_cumsum[-1,:])
+    #     #ca_df[cumsum_list].iloc[1:-underhang+1]=np.diff(ca_cumsum,axis=0
+    #
+    #
+    #     ca_df.loc[ca_df.time<=vr_time[-1],cumsum_list] = np.diff(ca_cumsum,axis=0)
+    #
+    #     # fill na here
+    #     ca_df.loc[np.isnan(ca_df['teleport']._values),'teleport']=0
+    #     ca_df.loc[np.isnan(ca_df['tstart']._values),'tstart']=0
+    #
+    #
+    #     k = Gaussian1DKernel(5)
+    #     cum_dz = convolve(np.cumsum(ca_df['dz']._values),k,boundary='extend')
+    #     ca_df['dz'] = np.ediff1d(cum_dz,to_end=0)
+    #
+    #
+    #     ca_df['speed'].interpolate(method='linear',inplace=True)
+    #     ca_df['speed']=np.array(np.divide(ca_df['dz'],np.ediff1d(ca_df['time'],to_begin=1./fr)))
+    #     ca_df['speed'].iloc[0]=0
+    #
+    #
+    #     ca_df['lick rate'] = np.array(np.divide(ca_df['lick'],np.ediff1d(ca_df['time'],to_begin=1./fr)))
+    #     ca_df['lick rate'] = convolve(ca_df['lick rate']._values,k,boundary='extend')
+    #     ca_df[['reward','tstart','teleport','lick','clickOn','towerJitter','wallJitter','bckgndJitter']].fillna(value=0,inplace=True)
 
     return ca_df
 
