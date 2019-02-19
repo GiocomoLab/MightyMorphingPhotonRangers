@@ -9,6 +9,7 @@ import sqlite3 as sql
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from scipy.ndimage.filters import gaussian_filter, gaussian_filter1d
+from scipy.ndimage import filters
 import pandas as pd
 from datetime import datetime
 from glob import glob
@@ -38,6 +39,18 @@ class LOTrialO:
             return self.train_mask>0,self.test_mask>0
         else:
             return None, None
+
+def df(C,ops={'sig_baseline':10,'win_baseline':300,'sig_output':10,'method':'maximin'}):
+    if ops['method']=='maximin':
+        Flow = filters.gaussian_filter(C,    [ops['sig_baseline'], 0])
+        Flow = filters.minimum_filter1d(Flow,    ops['win_baseline'],axis=0)
+        Flow = filters.maximum_filter1d(Flow,    ops['win_baseline'],axis=0)
+    else:
+        pass
+
+    C-=Flow
+    return filters.gaussian_filter(C,[ops['sig_output'],0])
+
 
 
 def make_spline_basis(x,knots=np.arange(-.2,1,.34)):

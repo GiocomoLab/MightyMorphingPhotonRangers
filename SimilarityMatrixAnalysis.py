@@ -18,7 +18,7 @@ def single_session(sess, C= None, VRDat = None, zscore = False, spikes = False,
     '''calculate similarity matrices, average within the morphs and plot results'''
     # load calcium data and aligned vr
     if (C is None) or (VRDat is None):
-        VRDat, C, Cd, S, A = pp.load_scan_sess(sess)
+        VRDat, C, S, A = pp.load_scan_sess(sess,fneu_coeff=0)
 
     if mask is not None:
         C = C[:,mask]

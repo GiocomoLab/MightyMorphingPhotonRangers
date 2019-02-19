@@ -63,62 +63,11 @@ def _todict(matobj):
         else:
             dict[strg] = elem
     return dict
-#
-# def loadmat_sbx(filename):
-#     """
-#     this function should be called instead of direct spio.loadmat
-#
-#     as it cures the problem of not properly recovering python dictionaries
-#     from mat files. It calls the function check keys to cure all entries
-#     which are still mat-objects
-#     """
-#     print(filename)
-#     try:
-#         data_ = sp.io.loadmat(filename, struct_as_record=False, squeeze_me=True)
-#         return _check_keys(data_)
-#     except:
-#         data_ = {}
-#         with h5py.File(filename,'r') as f:
-#             for k,v in f.items():
-#                 try:
-#                     data_[k]=np.array(v)
-#                 except:
-#                     data_[k]=v
-#         return data_
-#
 
 
-def load_ca_mat(fname,fov = [512,796]):
-    """load results from cnmf"""
 
-    ca_dat = {}
-    try:
-        print(fname)
-        with h5py.File(fname,'r') as f:
-            # try:
-            #     C = np.array(f['C'])
-            # except:
-            #     C = np.array(f['C_keep'])
 
-            for k,v in f.items():
-                print(k)
-                try:
-                    #print(k)
-                    if k in ('A_keep', 'A'):
-                        ca_dat[k] = sp.sparse.csc_matrix((f[k]['data'],f[k]['ir'],f[k]['jc']),shape=[fov[0]*fov[1],C.shape[1]])
-                    else:
-                        ca_dat[k] = np.array(v)
-                except:
-                    print(k + "not made into numpy array")
-                    ca_dat[k]=v
-    except:
-        ca_dat = sp.io.loadmat(fname)
-        for key in ca_dat.keys():
-            if isinstance(ca_dat[key],np.ndarray):
-                ca_dat[key] = ca_dat[key].T
-    return ca_dat
-
-def load_scan_sess(sess,medfilt=True,analysis='s2p',plane=0,fneu_coeff=.7):
+def load_scan_sess(sess,analysis='s2p',plane=0,fneu_coeff=.7):
     VRDat = behavior_dataframe(sess['data file'],scanmats=sess['scanmat'],concat=False)
 
     # load imaging
@@ -130,18 +79,12 @@ def load_scan_sess(sess,medfilt=True,analysis='s2p',plane=0,fneu_coeff=.7):
         except:
             C = ca_dat['C_keep'][1:,:]#[info['frame'][0]-1:info['frame'][-1]]
 
-        for j in range(C.shape[1]):
-            C[:,j]=sp.signal.medfilt(C[:,j],kernel_size=13)
-
         Cd = ca_dat['C_dec']#[info['frame'][0]-1:info['frame'][-1]]
         #print(ca_dat.keys())
         S = ca_dat['S_dec']#[info['frame'][0]-1:info['frame'][-1]]
         frame_diff = VRDat.shape[0]-C.shape[0]
         print('frame diff',frame_diff)
         assert (frame_diff==0), "something is wrong with aligning VR and calcium data"
-        #if frame_diff>0:
-            #VRDat = VRDat.iloc[:-frame_diff]
-        #    raise ValueError
 
         if 'A_keep' in ca_dat.keys():
             return VRDat,C,S, ca_dat['A_keep']
@@ -157,11 +100,10 @@ def load_scan_sess(sess,medfilt=True,analysis='s2p',plane=0,fneu_coeff=.7):
         S = np.load(os.path.join(folder,'spks.npy'))
         C = F-fneu_coeff*Fneu
         C=C[iscell[:,0]>0,:].T
-        # C=C[info['frame'][0]-1:info['frame'][-1]+1,:]
         S=S[iscell[:,0 ]>0,:].T
-        # S=S[info['frame'][0]-1:info['frame'][-1]+1,:]
-        for j in range(C.shape[1]):
-            C[:,j]=sp.signal.medfilt(C[:,j],kernel_size=13)
+        frame_diff = VRDat.shape[0]-C.shape[0]
+        print('frame diff',frame_diff)
+        assert (frame_diff==0), "something is wrong with aligning VR and calcium data"
         return VRDat,C,S,None
     else:
         return
@@ -244,16 +186,16 @@ def build_VR_filename(mouse,date,scene,session,serverDir = "G:\\My Drive\\VR_Dat
         #raise Exception("file doesn't exist")
 
 
-def _VR_align_to_2P(vr_dframe,infofile, n_imaging_planes = 1, fix_alexs_fuckup=True):
+def _VR_align_to_2P(vr_dframe,infofile, n_imaging_planes = 1):
     '''align behavior to 2P sample times using splines'''
 
-    info = loadmat_sbx(infofile)#['info']
-    fr = info['fr'] #info['resfreq']/info['recordsPerBuffer'] # frame rate
+    info = loadmat_sbx(infofile)
+    fr = info['fr'] # frame rate
     lr = fr*512. # line rate
-    # if fix_alexs_fuckup:
-        ## on Feb 6, 2019 noticed that Alex Attinger's new National Instruments board
-        ## created a floating ground on my TTL circuit. This caused a bunch of extra TTLs
-        ## due to unexpected grounding of the signal.
+
+    ## on Feb 6, 2019 noticed that Alex Attinger's new National Instruments board
+    ## created a floating ground on my TTL circuit. This caused a bunch of extra TTLs
+    ## due to unexpected grounding of the signal.
 
 
     orig_ttl_times = info['frame']/fr + info['line']/lr # including error ttls
@@ -318,72 +260,6 @@ def _VR_align_to_2P(vr_dframe,infofile, n_imaging_planes = 1, fix_alexs_fuckup=T
     ca_df['lick rate'] = np.array(np.divide(ca_df['lick'],np.ediff1d(ca_df['time'],to_begin=1./fr)))
     ca_df['lick rate'] = convolve(ca_df['lick rate']._values,k,boundary='extend')
     ca_df[['reward','tstart','teleport','lick','clickOn','towerJitter','wallJitter','bckgndJitter']].fillna(value=0,inplace=True)
-
-
-    # else:
-    #
-    #     numVRFrames = info['frame'].size
-    #     #print(numVRFrames)
-    #     caInds = np.array([int(i/n_imaging_planes) for i in info['frame']])
-    #
-    #     numCaFrames = caInds[-1]-caInds[0]+1
-    #     #print('orig ca frame count',numCaFrames)
-    #     fr = info['resfreq']/info['recordsPerBuffer']
-    #
-    #     frame = frame.iloc[-numVRFrames:]
-    #     print(frame.shape,caInds.shape)
-    #     frame['ca inds'] = caInds
-    #
-    #     ca_df = pd.DataFrame(columns = frame.columns,index=np.arange(numCaFrames))
-    #     ca_df['time'] = np.arange(0,1/fr*numCaFrames,1/fr)[:numCaFrames]
-    #
-    #     vr_time = frame['time']._values
-    #     vr_time = vr_time - vr_time[0]
-    #
-    #     ca_time = np.arange(0,np.min([ca_df['time'].iloc[-1], vr_time[-1]])+.0001,1/fr)
-    #     underhang = int(np.round((1/fr*numCaFrames-ca_time[-1])*fr))
-    #     print('frame underhang',underhang)
-    #
-    #     f_mean = sp.interpolate.interp1d(vr_time,frame['pos']._values,axis=0,kind='slinear')
-    #     ca_df.loc[ca_df.time<=vr_time[-1],'pos'] = f_mean(ca_time)
-    #
-    #     near_list = ['morph','clickOn','towerJitter','wallJitter','bckgndJitter']
-    #     f_nearest = sp.interpolate.interp1d(vr_time,frame[near_list]._values,axis=0,kind='nearest')
-    #     ca_df.loc[ca_df.time<=vr_time[-1],near_list] = f_nearest(ca_time)
-    #     ca_df.fillna(method='ffill',inplace=True)
-    #
-    #     cumsum_list = ['dz','lick','reward','tstart','teleport']
-    #
-    #     f_cumsum = sp.interpolate.interp1d(vr_time,np.cumsum(frame[cumsum_list]._values,axis=0),axis=0,kind='slinear')
-    #     ca_cumsum = np.round(np.insert(f_cumsum(ca_time),0,[0,0, 0 ,0,0],axis=0))
-    #     #print('cumsum',ca_cumsum[-1,:])
-    #     if ca_cumsum[-1,-1]<ca_cumsum[-1,-2]:
-    #         ca_cumsum[-1,-1]+=1
-    #     #print('cumsum',ca_cumsum[-1,:])
-    #     #ca_df[cumsum_list].iloc[1:-underhang+1]=np.diff(ca_cumsum,axis=0
-    #
-    #
-    #     ca_df.loc[ca_df.time<=vr_time[-1],cumsum_list] = np.diff(ca_cumsum,axis=0)
-    #
-    #     # fill na here
-    #     ca_df.loc[np.isnan(ca_df['teleport']._values),'teleport']=0
-    #     ca_df.loc[np.isnan(ca_df['tstart']._values),'tstart']=0
-    #
-    #
-    #     k = Gaussian1DKernel(5)
-    #     cum_dz = convolve(np.cumsum(ca_df['dz']._values),k,boundary='extend')
-    #     ca_df['dz'] = np.ediff1d(cum_dz,to_end=0)
-    #
-    #
-    #     ca_df['speed'].interpolate(method='linear',inplace=True)
-    #     ca_df['speed']=np.array(np.divide(ca_df['dz'],np.ediff1d(ca_df['time'],to_begin=1./fr)))
-    #     ca_df['speed'].iloc[0]=0
-    #
-    #
-    #     ca_df['lick rate'] = np.array(np.divide(ca_df['lick'],np.ediff1d(ca_df['time'],to_begin=1./fr)))
-    #     ca_df['lick rate'] = convolve(ca_df['lick rate']._values,k,boundary='extend')
-    #     ca_df[['reward','tstart','teleport','lick','clickOn','towerJitter','wallJitter','bckgndJitter']].fillna(value=0,inplace=True)
-
     return ca_df
 
 def _VR_interp(frame):
@@ -410,7 +286,7 @@ def _VR_interp(frame):
     ca_cumsum = np.round(np.insert(f_cumsum(ca_time),0,[0,0, 0 ,0,0],axis=0))
     if ca_cumsum[-1,-1]<ca_cumsum[-1,-2]:
         ca_cumsum[-1,-1]+=1
-    #ca_df[cumsum_list].iloc[1:-underhang+1]=np.diff(ca_cumsum,axis=0
+
 
     ca_df[cumsum_list] = np.diff(ca_cumsum,axis=0)
 
@@ -449,12 +325,6 @@ def _get_frame(f,fix_teleports=True):
         pos[pos<-50] = -50
         teleport_inds = np.where(np.ediff1d(pos,to_end=0)<=-50)[0]
         tstart_inds = np.append([0],teleport_inds[:-1]+1)
-        # print('get frame',tstart_inds.shape,teleport_inds.shape)
-
-
-        #if teleport_inds.shape[0]<tstart_inds.shape[0]:
-            #print("catch")
-        #    teleport_inds = np.append(teleport_inds,pos.shape[0]-1)
 
         for ind in range(tstart_inds.shape[0]):  # for teleports
             while (pos[tstart_inds[ind]]<0) or (pos[tstart_inds[ind]]>5) : # while position is negative

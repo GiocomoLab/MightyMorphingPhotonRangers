@@ -15,15 +15,16 @@ import matplotlib.gridspec as gridspec
 
 
 
-def single_session(sess, C= None, VRDat = None, A=None,
-                savefigs = False,fbase=None,deconv=False,
-                correct_only=False,speedThr=False):
+def single_session(sess, savefigs = False,fbase=None,deconv=False,
+                correct_only=False,speedThr=False,method='bootstrap'):
+
     # load calcium data and aligned vr
-    if (C is None) and (VRDat is None) and (A is None):
-        VRDat, C, S, A = pp.load_scan_sess(sess)
+    VRDat, C, S, A = pp.load_scan_sess(sess,fneu_coeff=.7,analysis='s2p')
 
     if deconv:
         C=S
+    else:
+        C = u.df(C)
 
     # get trial by trial info
     trial_info, tstart_inds, teleport_inds = u.by_trial_info(VRDat)
@@ -36,11 +37,11 @@ def single_session(sess, C= None, VRDat = None, A=None,
     if speedThr:
         masks, FR, SI = place_cells_calc(C, VRDat['pos']._values,trial_info,
                         VRDat['tstart']._values, VRDat['teleport']._values,
-                        method='bootstrap',correct_only=correct_only,speed=VRDat.speed._values)
+                        method=method,correct_only=correct_only,speed=VRDat.speed._values)
     else:
         masks, FR, SI = place_cells_calc(C, VRDat['pos']._values,trial_info,
                         VRDat['tstart']._values, VRDat['teleport']._values,
-                        method='bootstrap',correct_only=correct_only)
+                        method=method,correct_only=correct_only)
 
     # plot place cells by morph
     f_pc, ax_pc = plot_placecells(C_morph_dict,masks)
@@ -56,20 +57,20 @@ def single_session(sess, C= None, VRDat = None, A=None,
     print('common place cells = %g' % common_pc.sum())
         # including, excluding reward zones
 
-    ####### stability
-    # first vs second half correlation
-    sc_corr, pv_corr= {}, {}
-    sc_corr[0], pv_corr[0] = stability_split_halves(C_morph_dict[0])
-    sc_corr[1], pv_corr[1] = stability_split_halves(C_morph_dict[1])
+    # ####### stability
+    # # first vs second half correlation
+    # sc_corr, pv_corr= {}, {}
+    # sc_corr[0], pv_corr[0] = stability_split_halves(C_morph_dict[0])
+    # sc_corr[1], pv_corr[1] = stability_split_halves(C_morph_dict[1])
 
     #   (fancier version, tortuosity of warping function over time)
     # not implemented yet
 
-    ####### tuning specificity
-    #   vector length of circularized tuning curve
-    mvl = {}
-    mvl[0] = meanvectorlength(FR[0]['all'])
-    mvl[1] = meanvectorlength(FR[1]['all'])
+    # ####### tuning specificity
+    # #   vector length of circularized tuning curve
+    # mvl = {}
+    # mvl[0] = meanvectorlength(FR[0]['all'])
+    # mvl[1] = meanvectorlength(FR[1]['all'])
 
     # reward cell scatter plot
     FR_0_cpc = FR[0]['all'][:,common_pc]
@@ -77,12 +78,12 @@ def single_session(sess, C= None, VRDat = None, A=None,
     f_rc, ax_rc = reward_cell_scatterplot(FR_0_cpc,FR_1_cpc)
 
     # cell's topography
-    # place cell in which morph
-    both = np.where((masks[0]>0) & (masks[1]>0) )[0]
-    none = np.where((masks[0]==0) & (masks[1]==0))[0]
-    m0 = np.where((masks[0]==1) & (masks[1]==0))[0]
-    m1 = np.where((masks[0]==0) & (masks[1]==1))[0]
-    #tvals = np.zeros([A.shape[1],])
+    # # place cell in which morph
+    # both = np.where((masks[0]>0) & (masks[1]>0) )[0]
+    # none = np.where((masks[0]==0) & (masks[1]==0))[0]
+    # m0 = np.where((masks[0]==1) & (masks[1]==0))[0]
+    # m1 = np.where((masks[0]==0) & (masks[1]==1))[0]
+    # #tvals = np.zeros([A.shape[1],])
     #tvals[both]=.01
     #tvals[m0]=-1
     #tvals[m1]=1
@@ -179,6 +180,7 @@ def spatial_info(frmap,occupancy):
     #p_map = np.zeros(frmap.shape)
     for i in range(ncells):
         p_map = gaussian_filter(frmap[:,i],3)+.001
+        p_map -= np.amin(p_map) -.001 # ensure positive
         p_map /= p_map.sum()
         denom = np.multiply(p_map,occupancy).sum()
 
@@ -258,7 +260,7 @@ def place_cells_calc(C, position, trial_info, tstart_inds,
             for b in range(n_boots):
                 # pick a random subset of trials
                 ntrials = C_morph_dict[m].shape[0]
-                bs_pcnt = .6 # proportion of trials to keep
+                bs_pcnt = .7 # proportion of trials to keep
                 bs_thr = int(bs_pcnt*ntrials) # number of trials to keep
                 bs_inds = np.random.permutation(ntrials)[:bs_thr]
                 FR_bs = np.nanmean(C_morph_dict[m][bs_inds,:,:],axis=0)
