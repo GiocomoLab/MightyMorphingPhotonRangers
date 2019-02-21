@@ -13,7 +13,8 @@ if __name__ == '__main__':
 
     mice = ['4139219.2','4139219.3','4139224.2','4139224.3','4139224.5',
     '4139251.1','4139260.1','4139260.2','4139261.2','4139265.3','4139265.4',
-    '4139265.5']
+    '4139265.5','4139266.3']
+    mice = ['4139266.3']
 
     df = pp.load_session_db()
     df = df[df['RewardCount']>20]
@@ -41,7 +42,8 @@ if __name__ == '__main__':
                     print(fname)
 
                     FR, masks, SI = pc.single_session(sess,savefigs=True,
-                                        deconv=True,fbase =fname)
+                                        deconv=True,fbase =fname, win_trial_perm=True,
+                                        cell_method='s2p',method='bootstrap')
                     results = {'FR':FR, 'masks':masks,'SI':SI}
                     with open(fname+"results.pkl",'wb') as f:
                         pickle.dump(results,f)

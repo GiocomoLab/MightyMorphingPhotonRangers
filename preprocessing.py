@@ -64,8 +64,15 @@ def _todict(matobj):
             dict[strg] = elem
     return dict
 
+def load_ca_mat(f):
 
-
+    try:
+        ca_dat = spio.loadmat(f, struct_as_record=False, squeeze_me=True)
+    except:
+        # ca_dat = {}
+        with h5py.File(f,'r') as h:
+            ca_dat = {k:np.array(v) for k,v in h.items() if k in {'C','C_keep','C_dec','S','S_dec'} }
+    return ca_dat
 
 def load_scan_sess(sess,analysis='s2p',plane=0,fneu_coeff=.7):
     VRDat = behavior_dataframe(sess['data file'],scanmats=sess['scanmat'],concat=False)
@@ -73,6 +80,7 @@ def load_scan_sess(sess,analysis='s2p',plane=0,fneu_coeff=.7):
     # load imaging
     info = loadmat_sbx(sess['scanmat'])
     if analysis == "cnmf":
+        # ca_dat = spio.loadmat(sess['scanfile'], struct_as_record=False, squeeze_me=True)
         ca_dat = load_ca_mat(sess['scanfile'])
         try:
             C = ca_dat['C'][1:,:]#[info['frame'][0]-1:info['frame'][-1]]
@@ -86,10 +94,11 @@ def load_scan_sess(sess,analysis='s2p',plane=0,fneu_coeff=.7):
         print('frame diff',frame_diff)
         assert (frame_diff==0), "something is wrong with aligning VR and calcium data"
 
-        if 'A_keep' in ca_dat.keys():
-            return VRDat,C,S, ca_dat['A_keep']
-        elif 'A' in ca_dat.keys():
-            return VRDat,C, S, ca_dat['A']
+        return VRDat,C,S,None
+        # if 'A_keep' in ca_dat.keys():
+        #     return VRDat,C,S, ca_dat['A_keep']
+        # elif 'A' in ca_dat.keys():
+        #     return VRDat,C, S, ca_dat['A']
     elif analysis == "s2p":
 
         folder = os.path.join(sess['s2pfolder'],'plane%i' % plane)
@@ -205,12 +214,16 @@ def _VR_align_to_2P(vr_dframe,infofile, n_imaging_planes = 1):
     # ensured outside of this script that this finds the true start ttl on every scan
     mask = np.insert(np.diff(tmp),0,0) # find first ttl in string that were too fast
     mask[mask<0] = 0
+    print('num aberrant ttls',tmp.sum())
 
     frames = info['frame'][mask==0] # should be the original ttls up to a 1 VR frame error
     lines = info['line'][mask==0]
 
     ttl_times = frames/fr + lines/lr
     numVRFrames = frames.shape[0]
+    # vr_time = vr_dframe['time']._values[-numVRFrames:]
+    # vr_time-=vr_time[0]
+    # vr_time+=ttl_times[0]
 
     ca_df = pd.DataFrame(columns = vr_dframe.columns, index = np.arange(info['max_idx']))
     ca_time = np.arange(0,1/fr*info['max_idx'],1/fr)
@@ -219,11 +232,13 @@ def _VR_align_to_2P(vr_dframe,infofile, n_imaging_planes = 1):
 
     vr_dframe = vr_dframe.iloc[-numVRFrames:]
     f_mean = sp.interpolate.interp1d(ttl_times,vr_dframe['pos']._values,axis=0,kind='slinear')
+    # f_mean = sp.interpolate.interp1d(vr_time,vr_dframe['pos']._values,axis=0,kind='slinear')
     ca_df.loc[mask,'pos'] = f_mean(ca_time[mask])
     ca_df.loc[~mask,'pos']=-500.
 
     near_list = ['morph','clickOn','towerJitter','wallJitter','bckgndJitter']
     f_nearest = sp.interpolate.interp1d(ttl_times,vr_dframe[near_list]._values,axis=0,kind='nearest')
+    # f_nearest = sp.interpolate.interp1d(vr_time,vr_dframe[near_list]._values,axis=0,kind='nearest')
     ca_df.loc[mask,near_list] = f_nearest(ca_time[mask])
     ca_df.fillna(method='ffill',inplace=True)
     ca_df.loc[~mask,near_list]=-1.
@@ -231,6 +246,7 @@ def _VR_align_to_2P(vr_dframe,infofile, n_imaging_planes = 1):
     cumsum_list = ['dz','lick','reward','tstart','teleport']
 
     f_cumsum = sp.interpolate.interp1d(ttl_times,np.cumsum(vr_dframe[cumsum_list]._values,axis=0),axis=0,kind='slinear')
+    # f_cumsum = sp.interpolate.interp1d(vr_time,np.cumsum(vr_dframe[cumsum_list]._values,axis=0),axis=0,kind='slinear')
     ca_cumsum = np.round(np.insert(f_cumsum(ca_time[mask]),0,[0,0, 0 ,0,0],axis=0))
     #print('cumsum',ca_cumsum[-1,:])
     if ca_cumsum[-1,-1]<ca_cumsum[-1,-2]:

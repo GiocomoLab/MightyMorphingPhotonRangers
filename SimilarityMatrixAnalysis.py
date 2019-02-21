@@ -6,42 +6,55 @@ import os
 from datetime import datetime
 from glob import glob
 
-os.sys.path.append('../')
+# os.sys.path.append('../')
 import utilities as u
 import preprocessing as pp
 import matplotlib.gridspec as gridspec
 
 
+def set_default_ops(d):
+    ops={}
+    ops['zscore']=False
+    ops['deconv']=True
+    ops['cell_normalize']=False
+    ops['corr']=True
+    ops['bootstrap']=False
+    ops['mask'] = None
+    for k,v in d.items():
+        ops[k]=v
 
-def single_session(sess, C= None, VRDat = None, zscore = False, spikes = False,
-                    cell_normalize = False,corr=True,bootstrap=True,mask = None,correct_only=False):
+    return ops
+
+
+def single_session(sess,ops = {}):
     '''calculate similarity matrices, average within the morphs and plot results'''
     # load calcium data and aligned vr
-    if (C is None) or (VRDat is None):
-        VRDat, C, S, A = pp.load_scan_sess(sess,fneu_coeff=0)
+    VRDat, C, S, A = pp.load_scan_sess(sess,fneu_coeff=0.7)
 
-    if mask is not None:
-        C = C[:,mask]
+    ops = set_default_ops(ops)
+
+    if ops['deconv']:
+        C=S
+    else:
+        C = u.df(C)
+
+
+    if ops['mask'] is not None:
+        C = C[:,ops['mask']]
 
     # get trial by trial info
     trial_info, tstart_inds, teleport_inds = u.by_trial_info(VRDat)
-    # print("sim script",tstart_inds.shape,teleport_inds.shape)
     C_trial_mat, occ_trial_mat, edges,centers = u.make_pos_bin_trial_matrices(C,VRDat['pos']._values,VRDat['tstart']._values,VRDat['teleport']._values)
     morphs = trial_info['morphs']
-    if correct_only:
-        mask = np.multiply(morphs!=.5,trial_info['rewards']>0)
-        C_trial_mat = C_trial_mat[mask,:,:]
-        morphs = morphs[mask]
-    # print("trials",C_trial_mat.shape)
     C_morph_dict = u.trial_type_dict(C_trial_mat,morphs)
 
     mlist = np.unique(np.sort(morphs)).tolist()
     m = len(mlist)
-    if bootstrap:
+    if ops['bootstrap']:
         nperms = 50
-        S_full = morph_simmat(C_morph_dict, cell_normalize = cell_normalize,corr=corr)
+        S_full = morph_simmat(C_morph_dict, corr=ops['corr'])
 
-        U_full, U_full_rnorm = morph_mean_simmat(S_full,m)
+        U_full = morph_mean_simmat(S_full,m)
 
         # allocate space
         S_bs = np.zeros([S_full.shape[0],S_full.shape[1], nperms])
@@ -56,7 +69,7 @@ def single_session(sess, C= None, VRDat = None, zscore = False, spikes = False,
 
 
             S_bs[:,:,p] = morph_simmat(C_tmp,corr=corr,cell_normalize=cell_normalize)
-            U_bs[:,:,p],trash = morph_mean_simmat(S_bs[:,:,p],m)
+            U_bs[:,:,p] = morph_mean_simmat(S_bs[:,:,p],m)
 
         f_S,ax_S = plot_simmat(np.nanmean(S_bs,axis=-1),m)
 
@@ -69,17 +82,17 @@ def single_session(sess, C= None, VRDat = None, zscore = False, spikes = False,
 
 
     else:
-        S = morph_simmat(C_morph_dict, cell_normalize = cell_normalize,corr=corr)
-        U, U_rnorm = morph_mean_simmat(S,m)
+        S = morph_simmat(C_morph_dict, corr=ops['corr'])
+        U= morph_mean_simmat(S,m)
 
         f_S,ax_S = plot_simmat(S,m)
 
-        f_U,ax_U = plt.subplots(2,1,figsize=[5,10])
-        ax_U[0].imshow(U,cmap='Greys')
+        f_U,ax_U = plt.subplots(figsize=[5,5])
+        ax_U.imshow(U,cmap='Greys')
 
-        ax_U[1].imshow(U_rnorm,cmap='Greys')
+        # ax_U[1].imshow(U_rnorm,cmap='Greys')
 
-        return S, U, U_rnorm, (f_S,ax_S), (f_U, ax_U)
+        return S, U, (f_S,ax_S), (f_U, ax_U)
 
 
 def plot_simmat(S,m):
@@ -98,47 +111,58 @@ def plot_simmat(S,m):
 
     return f,ax
 
-def morph_mean_simmat(S,m):
+def morph_mean_simmat(SM,m):
     ''''''
     # m = number of morphs
-    N = S.shape[0]
+    N = SM.shape[0]
     step = int(N/m)
 
     U = np.zeros([m,m])
 
     # average within morphs
     e = np.arange(0,N+1,step)
-    edges = np.zeros([e.shape[0]-1,2])
-    edges[:,0], edges[:,1] = e[:-1], e[1:]
+    # take off diagonal in each block
     for i in range(m):
+        row_slice = np.arange(e[i],e[i+1])
         for j in range(m):
-            U[i,j] = S[int(edges[i,0]):int(edges[i,1]),int(edges[j,0]):int(edges[j,1])].ravel().mean()
+            col_slice= np.arange(e[j],e[j+1])
+            U[i,j]= SM[row_slice,col_slice].ravel().mean()
+    return U
+    # edges = np.zeros([e.shape[0]-1,2])
+    # edges[:,0], edges[:,1] = e[:-1], e[1:]
+    # for i in range(m):
+    #     for j in range(m):
+    #         U[i,j] = S[int(edges[i,0]):int(edges[i,1]),int(edges[j,0]):int(edges[j,1])].ravel().mean()
+    #
+    # # normalize to make identity 1
+    # U_rnorm = np.zeros(U.shape)
+    # for z in range(U.shape[0]):
+    #     U_rnorm[z,:] = U[z,:]/U[z,z]
+    #
+    # return U, U_rnorm
 
-    # normalize to make identity 1
-    U_rnorm = np.zeros(U.shape)
-    for z in range(U.shape[0]):
-        U_rnorm[z,:] = U[z,:]/U[z,z]
-
-    return U, U_rnorm
-
-def morph_simmat(C_morph_dict, cell_normalize = False,corr = False ):
-    X = morph_by_cell_mat(C_morph_dict,normalize=cell_normalize)
+def morph_simmat(C_morph_dict, corr = False ):
+    X = morph_by_cell_mat(C_morph_dict)
 
     if corr: # center and scale by l2 norm to give correlation
-        for j in range(int(X.shape[1])):
-            nrm = np.linalg.norm(X[~np.isnan(X[:,j]),j])
+        X=sp.stats.zscore(X,axis=0)
+        # for j in range(int(X.shape[1])):
+        #     nrm = np.linalg.norm(X[~np.isnan(X[:,j]),j])
+        #
+        #     if nrm>0:
+        #         mu = np.nanmean(X[:,j]).ravel()
+        #         x_dm = X[:,j]-mu
+        #         std = np.nanstd(x_dm)
+        #         X[:,j]=x_dm/std #(X[:,j]-np.nanmean(X[:,j].ravel()))/nrm
+        #     else:
+        #         print(nrm)
 
-            if nrm>0:
-                mu = np.nanmean(X[:,j]).ravel()
-                x_dm = X[:,j]-mu
-                std = np.nanstd(x_dm)
-                X[:,j]=x_dm/std #(X[:,j]-np.nanmean(X[:,j].ravel()))/nrm
-            else:
-                print(nrm)
 
+    else: # scale by l2 norm to give cosine similarity
+        X/=np.power(X,2).sum(axis=0)[np.newaxis,:]
     return 1/X.shape[1]*np.matmul(X.T,X)
 
-def morph_by_cell_mat(C_morph_dict,normalize = False):
+def morph_by_cell_mat(C_morph_dict,sig=3):
     k = 0
     for i,m in enumerate(C_morph_dict.keys()):
 
@@ -146,15 +170,13 @@ def morph_by_cell_mat(C_morph_dict,normalize = False):
             #print(m, C_morph_dict[m].keys())
             # firing rate maps
             fr = np.nanmean(C_morph_dict[m],axis=0)
-            if normalize:
-                for j in range(fr.shape[1]):
-                    fr[:,j] = fr[:,j]/fr[:,j].sum()
+            fr = gaussian_filter(fr,[sig,0])
 
             if k == 0:
                 k+=1
                 X = fr.T
             else:
-                #print(X.shape,fr.shape)
+                print(X.shape,fr.shape)
                 X = np.hstack((X,fr.T))
 
     return X

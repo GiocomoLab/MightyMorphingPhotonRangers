@@ -7,6 +7,7 @@ import os
 import pandas as pd
 from datetime import datetime
 from glob import glob
+from random import randrange
 
 os.sys.path.append('../')
 import utilities as u
@@ -16,10 +17,11 @@ import matplotlib.gridspec as gridspec
 
 
 def single_session(sess, savefigs = False,fbase=None,deconv=False,
-                correct_only=False,speedThr=False,method='bootstrap'):
+                correct_only=False,speedThr=False,method='bootstrap',
+                win_trial_perm=False,cell_method='s2p'):
 
     # load calcium data and aligned vr
-    VRDat, C, S, A = pp.load_scan_sess(sess,fneu_coeff=.7,analysis='s2p')
+    VRDat, C, S, A = pp.load_scan_sess(sess,fneu_coeff=.7,analysis=cell_method)
 
     if deconv:
         C=S
@@ -31,17 +33,19 @@ def single_session(sess, savefigs = False,fbase=None,deconv=False,
     C_trial_mat, occ_trial_mat, edges,centers = u.make_pos_bin_trial_matrices(C,VRDat['pos']._values,VRDat['tstart']._values,VRDat['teleport']._values)
     C_morph_dict = u.trial_type_dict(C_trial_mat,trial_info['morphs'])
     occ_morph_dict = u.trial_type_dict(occ_trial_mat,trial_info['morphs'])
+    #mask = VRDat['pos']._values>0
 
     # find place cells individually on odd and even trials
     # keep only cells with significant spatial information on both
     if speedThr:
         masks, FR, SI = place_cells_calc(C, VRDat['pos']._values,trial_info,
                         VRDat['tstart']._values, VRDat['teleport']._values,
-                        method=method,correct_only=correct_only,speed=VRDat.speed._values)
+                        method=method,correct_only=correct_only,speed=VRDat.speed._values,
+                        win_trial_perm=win_trial_perm)
     else:
         masks, FR, SI = place_cells_calc(C, VRDat['pos']._values,trial_info,
                         VRDat['tstart']._values, VRDat['teleport']._values,
-                        method=method,correct_only=correct_only)
+                        method=method,correct_only=correct_only, win_trial_perm=win_trial_perm)
 
     # plot place cells by morph
     f_pc, ax_pc = plot_placecells(C_morph_dict,masks)
@@ -177,30 +181,41 @@ def spatial_info(frmap,occupancy):
     ncells = frmap.shape[1]
 
     SI = []
-    #p_map = np.zeros(frmap.shape)
-    for i in range(ncells):
-        p_map = gaussian_filter(frmap[:,i],3)+.001
-        p_map -= np.amin(p_map) -.001 # ensure positive
-        p_map /= p_map.sum()
-        denom = np.multiply(p_map,occupancy).sum()
+    ### vectorizing
+    P_map = frmap - np.amin(frmap)+.001
+    P_map = gaussian_filter(P_map,[3,0])
+    P_map = P_map/P_map.sum(axis=0)
+    arg = P_map*occupancy[:,np.newaxis]
+    denom = arg.sum(axis=0)
+    SI = (arg*np.log2(P_map/denom)).sum(axis=0)
+    # SI = (P_map*occupancy[:,np.newaxis]*np.log2(P_map)).sum(axis=0)
+    return SI
+    ##
+    # #p_map = np.zeros(frmap.shape)
+    # for i in range(ncells):
+    #     # p_map = gaussian_filter(frmap[:,i],3)+.001
+    #     # p_map -= np.amin(p_map) -.001 # ensure positive
+    #     # p_map /= p_map.sum()
+    #     # denom = np.multiply(p_map,occupancy).sum()
+    #
+    #
+    #     si = 0
+    #     for c in range(frmap.shape[0]):
+    #         if (p_map[c]<0) or (occupancy[c]<0):
+    #             print("we have a problem")
+    #         if (p_map[c] >= 0) and (occupancy[c]>=0):
+    #             #print(p_map[c],denom,np.log2(p_map[c]/denom))
+    #
+    #             si+= occupancy[c]*p_map[c]*np.log2(p_map[c]/denom)
+    #         #print(p_)
+    #     SI.append(si)
 
-
-        si = 0
-        for c in range(frmap.shape[0]):
-            if (p_map[c]<0) or (occupancy[c]<0):
-                print("we have a problem")
-            if (p_map[c] >= 0) and (occupancy[c]>=0):
-                #print(p_map[c],denom,np.log2(p_map[c]/denom))
-
-                si+= occupancy[c]*p_map[c]*np.log2(p_map[c]/denom)
-            #print(p_)
-        SI.append(si)
-
-    return np.array(SI)
+    # return np.array(SI)
 
 
 def place_cells_calc(C, position, trial_info, tstart_inds,
-                teleport_inds,method="all",pthr = .99,correct_only=False,speed=None):
+                teleport_inds,method="all",pthr = .95,correct_only=False,
+                speed=None,win_trial_perm=False):
     '''get masks for significant place cells that have significant place info
     in both even and odd trials'''
 
@@ -247,8 +262,12 @@ def place_cells_calc(C, position, trial_info, tstart_inds,
             SI[m]['even'] = spatial_info(FR[m]['even'],occ_e)
 
 
-            p_e, shuffled_SI = spatial_info_perm_test(SI[m]['even'],C,position,tstart_morph_dict[m][1::2],teleport_morph_dict[m][1::2],nperms=100)
-            p_o, shuffled_SI = spatial_info_perm_test(SI[m]['odd'],C,position,tstart_morph_dict[m][0::2],teleport_morph_dict[m][0::2], nperms = 100 ) #,shuffled_SI=shuffled_SI)
+            p_e, shuffled_SI = spatial_info_perm_test(SI[m]['even'],C,position,
+                                    tstart_morph_dict[m][1::2],teleport_morph_dict[m][1::2],
+                                    nperms=100,win_trial=win_trial_perm)
+            p_o, shuffled_SI = spatial_info_perm_test(SI[m]['odd'],C,position,
+                                    tstart_morph_dict[m][0::2],teleport_morph_dict[m][0::2],
+                                    nperms = 100,win_trial=win_trial_perm ) #,shuffled_SI=shuffled_SI)
 
 
             masks[m]=np.multiply(p_e>pthr,p_o>pthr)
@@ -269,18 +288,22 @@ def place_cells_calc(C, position, trial_info, tstart_inds,
                 SI_bs[b,:] = spatial_info(FR_bs,occ_bs)
             print("end bootstrap")
             SI[m]['bootstrap']= np.median(SI_bs,axis=0).ravel()
-            p_bs, shuffled_SI = spatial_info_perm_test(SI[m]['bootstrap'],C,position,tstart_morph_dict[m],teleport_morph_dict[m],nperms=100)
+            p_bs, shuffled_SI = spatial_info_perm_test(SI[m]['bootstrap'],C,
+                                    position,tstart_morph_dict[m],teleport_morph_dict[m],
+                                    nperms=100,win_trial=win_trial_perm)
             masks[m] = p_bs>pthr
 
         else:
-            p_all, shuffled_SI = spatial_info_perm_test(SI[m]['all'],C,position,tstart_morph_dict[m],teleport_morph_dict[m],nperms=100)
+            p_all, shuffled_SI = spatial_info_perm_test(SI[m]['all'],C,position,
+                                    tstart_morph_dict[m],teleport_morph_dict[m],
+                                    nperms=100,win_trial=win_trial_perm)
             masks[m] = p_all>pthr
 
     return masks, FR, SI
 
 
 
-def spatial_info_perm_test(SI,C,position,tstart,tstop,nperms = 10000,shuffled_SI=None):
+def spatial_info_perm_test(SI,C,position,tstart,tstop,nperms = 10000,shuffled_SI=None,win_trial = True):
     '''run permutation test on spatial information calculations. returns empirical p-values for each cell'''
     if len(C.shape)>2:
         C = np.expand_dims(C,1)
@@ -289,8 +312,13 @@ def spatial_info_perm_test(SI,C,position,tstart,tstop,nperms = 10000,shuffled_SI
         shuffled_SI = np.zeros([nperms,C.shape[1]])
 
         for perm in range(nperms):
-            #C_perm = np.roll(C,randrange(position.shape[0]),axis=0)
-            C_tmat, occ_tmat, edes,centers = u.make_pos_bin_trial_matrices(C,position,tstart,tstop,perm=True)
+
+            if win_trial:
+                C_tmat, occ_tmat, edes,centers = u.make_pos_bin_trial_matrices(C,position,tstart,tstop,perm=True)
+            else:
+                C_perm = np.roll(C,randrange(30,position.shape[0],30),axis=0)
+                C_tmat, occ_tmat, edes,centers = u.make_pos_bin_trial_matrices(C,position,tstart,tstop,perm=False)
+
             fr, occ = np.squeeze(np.nanmean(C_tmat,axis=0)), occ_tmat.sum(axis=0)
             occ/=occ.sum()
             #pos_perm = np.roll(position,randrange(position.shape[0]))
