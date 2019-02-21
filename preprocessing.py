@@ -121,13 +121,15 @@ def load_session_db(dir = "G:\\My Drive\\"):
     '''open the sessions sqlite database and add some columns'''
 
     vr_fname = os.path.join(dir,"VR_Data","TwoTower","behavior.sqlite")
+    print(vr_fname)
     conn = sql.connect(vr_fname)
     df = pd.read_sql("SELECT MouseName, DateFolder, SessionNumber,Track, RewardCount, Imaging, ImagingRegion FROM sessions",conn)
+    sdir = os.path.join(dir,"VR_Data","TwoTower")
     df['DateTime'] = [datetime.strptime(s,'%d_%m_%Y') for s in df['DateFolder']]
     df['data file'] = [ build_VR_filename(df['MouseName'].iloc[i],
                                            df['DateFolder'].iloc[i],
                                            df['Track'].iloc[i],
-                                           df['SessionNumber'].iloc[i],serverDir="%s\\VR_Data\\TwoTower\\" % dir) for i in range(df.shape[0])]
+                                           df['SessionNumber'].iloc[i],serverDir=sdir) for i in range(df.shape[0])]
     choose_first, choose_second = lambda x: x[0], lambda x: x[1]
     twop_dir = os.path.join(dir,"2P_Data","TwoTower")
 
@@ -140,7 +142,7 @@ def load_session_db(dir = "G:\\My Drive\\"):
                                         df['Track'].iloc[i],
                                         df['SessionNumber'].iloc[i],serverDir=twop_dir)) for i in range(df.shape[0])]
     # add s2p filefolder
-    df['s2pfolder']=[build_s2p_folder(df.iloc[i]) for i in range(df.shape[0])]
+    df['s2pfolder']=[build_s2p_folder(df.iloc[i],serverDir=twop_dir) for i in range(df.shape[0])]
 
     conn.close()
 
