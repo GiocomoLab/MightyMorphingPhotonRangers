@@ -55,7 +55,7 @@ def learning_curve_plots(data):
 
         ax_lp.plot(np.sort(np.unique(trial_info['morphs'])),pos_lick,color=plt.cm.copper(i/float(N)))
         #ax_lp.scatter(trial_info['morphs'],trial_info['pos_lick'],color=plt.cm.copper(i/float(N)),s=5)
-        ax_lp.set_ylabel("cm/s")
+        ax_lp.set_ylabel("cm")
         ax_lp.set_xlabel("morph")
         ax_lp.set_title("position of first lick")
         ax_lp.spines['top'].set_visible(False)

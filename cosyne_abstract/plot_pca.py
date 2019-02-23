@@ -10,10 +10,10 @@ from sklearn.decomposition import PCA
 import scipy as sp
 from mpl_toolkits.mplot3d import Axes3D
 
-def plot_pca(C,VRDat,pcnt):
+def plot_pca(C,VRDat,pcnt,plot_err=False):
     pca = PCA()
     trialMask = (VRDat['pos']>0) & (VRDat['pos']<445)
-    X = pca.fit_transform(C)
+    X = pca.fit_transform(C/np.amax(C))
 
     print(X.shape)
     # skree plots
@@ -29,19 +29,36 @@ def plot_pca(C,VRDat,pcnt):
     pos = VRDat.loc[trialMask,'pos']._values
     pos = pos[::5]
 
+    print(pcnt.shape)
+    pcnt = pcnt[trialMask]
+    pcnt = pcnt[::5]
+    print(pcnt.shape,XX.shape)
     time = VRDat.loc[trialMask,'time']._values
     time = time[::5]
 
+    if plot_err:
+        ax=f.add_subplot(141,projection='3d')
+        s_cxt=ax.scatter(XX[pcnt>0,0],XX[pcnt>0,1],XX[pcnt>0,2],c=morph[pcnt>0],cmap='cool',s=2,alpha=1)
+        ax_e = f.add_subplot(142,projection='3d')
+        s_cxt=ax_e.scatter(XX[pcnt>0,0],XX[pcnt>0,1],XX[pcnt>0,2],c=morph[pcnt>0],cmap='cool',s=2,alpha=.01)
+        s_cxt=ax_e.scatter(XX[pcnt<1,0],XX[pcnt<1,1],XX[pcnt<1,2],c=morph[pcnt<1],cmap='cool',s=2,alpha=1)
 
-    ax=f.add_subplot(131,projection='3d')
-    s_cxt=ax.scatter(XX[:,0],XX[:,1],XX[:,2],c=morph,cmap='cool',s=2)
+        aax = f.add_subplot(143,projection='3d')
+        s_pos=aax.scatter(XX[:,0],XX[:,1],XX[:,2],c=pos,cmap='magma',s=2)
+
+        aaax = f.add_subplot(144,projection='3d')
+        s_pos=aaax.scatter(XX[:,0],XX[:,1],XX[:,2],c=time,cmap='viridis',s=2)
+
+    else:
+        ax=f.add_subplot(131,projection='3d')
+        s_cxt=ax.scatter(XX[:,0],XX[:,1],XX[:,2],c=morph,cmap='cool',s=2)
 
 
-    aax = f.add_subplot(132,projection='3d')
-    s_pos=aax.scatter(XX[:,0],XX[:,1],XX[:,2],c=pos,cmap='magma',s=2)
+        aax = f.add_subplot(132,projection='3d')
+        s_pos=aax.scatter(XX[:,0],XX[:,1],XX[:,2],c=pos,cmap='magma',s=2)
 
-    aaax = f.add_subplot(133,projection='3d')
-    s_pos=aaax.scatter(XX[:,0],XX[:,1],XX[:,2],c=time,cmap='viridis',s=2)
+        aaax = f.add_subplot(133,projection='3d')
+        s_pos=aaax.scatter(XX[:,0],XX[:,1],XX[:,2],c=time,cmap='viridis',s=2)
 
     return f,[ax, aax, aaax]
 
@@ -54,6 +71,9 @@ if __name__ == '__main__':
     df = df[df['RewardCount']>20]
     df = df[df['Imaging']==1]
     df = df.sort_values(['MouseName','DateTime','SessionNumber'])
+    tracks = 'TwoTower_noTimeout|TwoTower_Timeout|Reversal_noTimeout|Reversal|TwoTower_foraging'
+    df = df[df['Track'].str.contains(tracks,regex=True)]
+
 
     for mouse in mice:
         dirbase = "G:\\My Drive\\Figures\\TwoTower\\PCA\\%s\\" % mouse
@@ -74,10 +94,10 @@ if __name__ == '__main__':
 
                 C = u.df(C)
                 S = sp.ndimage.filters.gaussian_filter1d(S,10.,axis=0)
-                f,ax = plot_pca(C,VRDat,pcnt)
+                f,ax = plot_pca(C,VRDat,pcnt,plot_err = True)
                 f.savefig(fname+"_C_pca.png",format='png')
 
-                f,ax = plot_pca(S,VRDat,pcnt)
+                f,ax = plot_pca(S,VRDat,pcnt,plot_err = True)
                 f.savefig(fname+"_S_pca.png",format='png')
             except:
                 print(df_mouse.iloc[i])

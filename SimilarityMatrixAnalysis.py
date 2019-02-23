@@ -26,7 +26,7 @@ def set_default_ops(d):
     return ops
 
 
-def single_session(sess,ops = {}):
+def single_session(sess,ops = {},plot=True):
     '''calculate similarity matrices, average within the morphs and plot results'''
     # load calcium data and aligned vr
     VRDat, C, S, A = pp.load_scan_sess(sess,fneu_coeff=0.7)
@@ -85,14 +85,17 @@ def single_session(sess,ops = {}):
         S = morph_simmat(C_morph_dict, corr=ops['corr'])
         U= morph_mean_simmat(S,m)
 
-        f_S,ax_S = plot_simmat(S,m)
+        if plot:
+            f_S,ax_S = plot_simmat(S,m)
 
-        f_U,ax_U = plt.subplots(figsize=[5,5])
-        ax_U.imshow(U,cmap='Greys')
+            f_U,ax_U = plt.subplots(figsize=[5,5])
+            ax_U.imshow(U,cmap='Greys')
 
-        # ax_U[1].imshow(U_rnorm,cmap='Greys')
+            # ax_U[1].imshow(U_rnorm,cmap='Greys')
 
-        return S, U, (f_S,ax_S), (f_U, ax_U)
+            return S, U, (f_S,ax_S), (f_U, ax_U)
+        else:
+            return S, U
 
 
 def plot_simmat(S,m):
@@ -160,7 +163,8 @@ def morph_simmat(C_morph_dict, corr = False ):
 
     else: # scale by l2 norm to give cosine similarity
         X/=np.power(X,2).sum(axis=0)[np.newaxis,:]
-    return 1/X.shape[1]*np.matmul(X.T,X)
+    #return np.matmul(X.T,X)
+    return 1/X.shape[0]*np.matmul(X.T,X)
 
 def morph_by_cell_mat(C_morph_dict,sig=3):
     k = 0

@@ -229,6 +229,7 @@ def _VR_align_to_2P(vr_dframe,infofile, n_imaging_planes = 1):
 
     ca_df = pd.DataFrame(columns = vr_dframe.columns, index = np.arange(info['max_idx']))
     ca_time = np.arange(0,1/fr*info['max_idx'],1/fr)
+    print(ca_time.shape,ca_df.shape,numVRFrames)
     ca_df.loc[:,'time'] = ca_time
     mask = ca_time>=ttl_times[0]
 

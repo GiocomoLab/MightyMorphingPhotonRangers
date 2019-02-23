@@ -26,19 +26,28 @@ class LOTrialO:
         self.stops = stops
         self.N = N
 
-    def next(self):
-        if self.c<len(self.starts):
-            self.train_mask *= 0
-            self.test_mask *= 0
-            for t,(start,stop) in enumerate(zip(self.starts,self.stops)):
-                if t == self.c:
-                    self.test_mask[start:stop]+=1
-                else:
-                    self.train_mask[start:stop]+=1
-            self.c+=1
-            return self.train_mask>0,self.test_mask>0
-        else:
-            return None, None
+    def __iter__(self):
+        self.c=-1
+        #train,test = self.get_masks()
+        return self
+
+    def get_masks(self):
+        self.train_mask *= 0
+        self.test_mask *= 0
+        for t,(start,stop) in enumerate(zip(self.starts,self.stops)):
+            if t == self.c:
+                self.test_mask[start:stop]+=1
+            else:
+                self.train_mask[start:stop]+=1
+        return self.train_mask>0,self.test_mask>0
+
+    def __next__(self):
+        self.c+=1
+        if self.c>=self.starts.shape[0]:
+            raise StopIteration
+        train,test = self.get_masks()
+        return train, test
+
 
 def df(C,ops={'sig_baseline':10,'win_baseline':300,'sig_output':10,'method':'maximin'}):
     if ops['method']=='maximin':
@@ -283,21 +292,26 @@ def by_trial_info(data,rzone0=(250,315),rzone1=(350,415)):
             if pos_licks.shape[0]>0:
                 pos_lick[i] = pos_licks.iloc[0]
 
-            if m<.5:
+            if m+wj+bj<.5:
                 if rewards[i]>0 and max_pos[i]>rzone1[1]:
                     pcnt[i] = 0
                 elif max_pos[i]<rzone1[1]:
                     pcnt[i]=1
-            elif m>.5:
-                if rewards[i]>0:
+            else:
+                if rewards[i]>0 and max_pos[i]>rzone1[1]:
                     pcnt[i] = 1
-                elif max_pos[i]<rzone1[0]:
-                    pcnt[i] = 0
-            elif m == .5:
-                if zone0_licks[i]>0:
-                    pcnt[i] = 0
-                elif zone1_licks[i]>0:
-                    pcnt[i]=1
+                elif max_pos[i]<rzone1[1]:
+                    pcnt[i]=0
+            # elif m>.5:
+            #     if rewards[i]>0 and max_pos[i]>rzone1[1]:
+            #         pcnt[i] = 1
+            #     elif max_pos[i]<rzone1[0]:
+            #         pcnt[i] = 0
+            # elif m == .5:
+            #     if zone0_licks[i]>0:
+            #         pcnt[i] = 0
+            #     elif zone1_licks[i]>0:
+            #         pcnt[i]=1
 
             if max_pos[i]>rzone1[1] and rewards[i]==0:
                 omissions[i]=1

@@ -173,8 +173,10 @@ class single_session:
         except:
             pass
 
-        VRDat, C,Cd,S, A = pp.load_scan_sess(sess)
+        VRDat, C,S, A = pp.load_scan_sess(sess)
+        C=u.df(C)
         C_z = sp.stats.zscore(C,axis=0)
+        # C_z = S
         trial_info, tstart_inds, teleport_inds = u.by_trial_info(VRDat)
 
         # get rewarded trials
@@ -445,17 +447,8 @@ class single_session:
                 self.trial_info['morphs'].tolist(),self.trial_info['rewards'].tolist())):
             # print(start,stop,m,r,wj,bj)
             self._single_line_llr_multiax(self.pos[start:stop],LLR[start:stop],m,r,ax_pos)
-
-
             self._single_line_llr_multiax(np.arange(stop-start)*1./15.46,LLR[start:stop],m,r,ax_time,xlim=[0,250])
 
-
-            # if r>0:
-            #     aax_pos.plot(self.pos[start:stop],LLR[start:stop],color=plt.cm.cool(np.float(m)),alpha=.5)
-            #     aax_time.plot(np.arange(stop-start)*1./15.46,LLR[start:stop],color=plt.cm.cool(np.float(m)),alpha=.5)
-            # else:
-            #     aax_pos.plot(self.pos[start:stop],LLR[start:stop],color='black',alpha=.5)
-            #     aax_time.plot(np.arange(stop-start)*1./15.46,LLR[start:stop],color='black',alpha=.5)
 
         ax_pos[0].set_xlabel('position')
         # aax_pos.set_xlabel('position')

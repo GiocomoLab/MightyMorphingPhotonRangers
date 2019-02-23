@@ -21,9 +21,9 @@ def single_session(sess,dirbase):
     f_U.savefig(fname+"U.pdf",format='pdf')
 
 
-    results = {'S':S, 'U':U}
-    with open(fname+"results.pkl",'wb') as f:
-        pickle.dump(results,f)
+    # results = {'S':S, 'U':U}
+    # with open(fname+"results.pkl",'wb') as f:
+    #     pickle.dump(results,f)
 
 
 

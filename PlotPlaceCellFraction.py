@@ -11,23 +11,27 @@ import pickle
 
 def getfrac():
 
-    mice = ['4139190.1', '4139190.3','4139212.2','4139212.4','4139219.2','4139219.3','4139224.2','4139224.3','4139224.5']
-    #mice = ['4139212.4','4139219.2','4139219.3','4139224.2','4139224.3','4139224.5']
+    mice = ['4139219.2','4139219.3','4139224.2','4139224.3','4139224.5',
+    '4139251.1','4139260.1','4139260.2','4139261.2','4139265.3','4139265.4',
+    '4139265.5','4139266.3']
     frac={}
     df = pp.load_session_db()
-    df = df[df['RewardCount']>20]
+    df = df[df['RewardCount']>30]
     df = df[df['Imaging']==1]
     df = df.sort_values(['MouseName','DateTime','SessionNumber'])
+    tracks = 'TwoTower_noTimeout|TwoTower_Timeout|Reversal_noTimeout|Reversal|TwoTower_foraging'
+    df = df[df['Track'].str.contains(tracks,regex=True)]
+
 
 
     frac={}
     for mouse in mice:
             frac[mouse]={}
-            dirbase = "G:\\My Drive\\Figures\\TwoTower\\COSYNE2019\\PlaceCells\\Cthr\\%s\\" % mouse
+            dirbase = "G:\\My Drive\\Figures\\TwoTower\\PlaceCells\\S\\%s\\" % mouse
 
             df_mouse = df[df['MouseName'].str.match(mouse)]
-            df_sess = df_mouse[df_mouse['Track'].str.match('TwoTower_noTimeout') | df_mouse['Track'].str.match('TwoTower_Timeout')]
-            df_sess = df_sess[df_sess['ImagingRegion'].str.match('CA1') | df_sess['ImagingRegion'].str.match('')]
+
+            df_sess = df_mouse[df_mouse['ImagingRegion'].str.match('CA1')]
 
             frac[mouse][0]=[]
             frac[mouse][1]=[]
