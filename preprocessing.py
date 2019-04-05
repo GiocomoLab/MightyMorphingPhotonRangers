@@ -80,7 +80,6 @@ def load_scan_sess(sess,analysis='s2p',plane=0,fneu_coeff=.7):
     # load imaging
     info = loadmat_sbx(sess['scanmat'])
     if analysis == "cnmf":
-        # ca_dat = spio.loadmat(sess['scanfile'], struct_as_record=False, squeeze_me=True)
         ca_dat = load_ca_mat(sess['scanfile'])
         try:
             C = ca_dat['C'][1:,:]#[info['frame'][0]-1:info['frame'][-1]]
@@ -88,17 +87,13 @@ def load_scan_sess(sess,analysis='s2p',plane=0,fneu_coeff=.7):
             C = ca_dat['C_keep'][1:,:]#[info['frame'][0]-1:info['frame'][-1]]
 
         Cd = ca_dat['C_dec']#[info['frame'][0]-1:info['frame'][-1]]
-        #print(ca_dat.keys())
         S = ca_dat['S_dec']#[info['frame'][0]-1:info['frame'][-1]]
         frame_diff = VRDat.shape[0]-C.shape[0]
         print('frame diff',frame_diff)
         assert (frame_diff==0), "something is wrong with aligning VR and calcium data"
 
         return VRDat,C,S,None
-        # if 'A_keep' in ca_dat.keys():
-        #     return VRDat,C,S, ca_dat['A_keep']
-        # elif 'A' in ca_dat.keys():
-        #     return VRDat,C, S, ca_dat['A']
+
     elif analysis == "s2p":
 
         folder = os.path.join(sess['s2pfolder'],'plane%i' % plane)
@@ -145,8 +140,6 @@ def load_session_db(dir = "G:\\My Drive\\"):
     df['s2pfolder']=[build_s2p_folder(df.iloc[i],serverDir=twop_dir) for i in range(df.shape[0])]
 
     conn.close()
-
-
     return df
 
 def build_s2p_folder(df,serverDir="G:\\My Drive\\2P_Data\\TwoTower\\"):
@@ -164,8 +157,6 @@ def build_s2p_folder(df,serverDir="G:\\My Drive\\2P_Data\\TwoTower\\"):
 def build_2P_filename(mouse,date,scene,sess,serverDir = "G:\\My Drive\\2P_Data\\TwoTower\\"):
     ''' use sessions database inputs to build appropriate filenames for 2P data'''
 
-
-
     results_fname = os.path.join(serverDir,mouse,date,scene,"%s_*%s_*_cnmf_results.mat" % (scene,sess))
     results_file=glob(results_fname)
     if len(results_file)==0:
@@ -174,7 +165,7 @@ def build_2P_filename(mouse,date,scene,sess,serverDir = "G:\\My Drive\\2P_Data\\
 
     info_fname = os.path.join(serverDir,mouse,date,scene,"%s_*%s_*[0-9].mat" % (scene,sess))
     info_file = glob(info_fname)
-    #print(info_file)
+
     if len(info_file)==0:
         #raise Exception("file doesn't exist")
         return None, None
@@ -223,9 +214,6 @@ def _VR_align_to_2P(vr_dframe,infofile, n_imaging_planes = 1):
 
     ttl_times = frames/fr + lines/lr
     numVRFrames = frames.shape[0]
-    # vr_time = vr_dframe['time']._values[-numVRFrames:]
-    # vr_time-=vr_time[0]
-    # vr_time+=ttl_times[0]
 
     ca_df = pd.DataFrame(columns = vr_dframe.columns, index = np.arange(info['max_idx']))
     ca_time = np.arange(0,1/fr*info['max_idx'],1/fr)
@@ -254,8 +242,6 @@ def _VR_align_to_2P(vr_dframe,infofile, n_imaging_planes = 1):
     #print('cumsum',ca_cumsum[-1,:])
     if ca_cumsum[-1,-1]<ca_cumsum[-1,-2]:
         ca_cumsum[-1,-1]+=1
-    #print('cumsum',ca_cumsum[-1,:])
-    #ca_df[cumsum_list].iloc[1:-underhang+1]=np.diff(ca_cumsum,axis=0
 
 
     ca_df.loc[mask,cumsum_list] = np.diff(ca_cumsum,axis=0)
@@ -329,11 +315,8 @@ def _VR_interp(frame):
 def _get_frame(f,fix_teleports=True):
     '''load a single session's sqlite database for behavior'''
     sess_conn = sql.connect(f)
-    #frame = pd.read_sql('''SELECT time, pos, dz, morph, lick, reward, tstart, teleport, clickOn, towerJitter
-    #            , wallJitter, bckgndJitter FROM data''',sess_conn)
-    frame = pd.read_sql('''SELECT * FROM data''',sess_conn)
 
-    #frame.loc[frame.dz>.2,'dz']=.2
+    frame = pd.read_sql('''SELECT * FROM data''',sess_conn)
     k = Gaussian1DKernel(5)
     frame['speed']=np.array(np.divide(frame['dz'],np.ediff1d(frame['time'],to_begin=.001)))
     frame['lick rate'] = np.array(np.divide(frame['lick'],np.ediff1d(frame['time'],to_begin=.001)))

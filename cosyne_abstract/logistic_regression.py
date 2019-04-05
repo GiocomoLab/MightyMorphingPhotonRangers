@@ -122,20 +122,20 @@ def confusion_matrix(data_dict,save=False,check_pcnt = True,
     for n,key in enumerate(keys.tolist()):
         all_mask = morphs==key
 
-        c_all[:,n*d_trial_mat.shape[1]:(n+1)*d_trial_mat.shape[1]]=np.nanmean(d_trial_mat[all_mask,:,:],axis=0).T
+        c_all[:,n*d_trial_mat.shape[1]:(n+1)*d_trial_mat.shape[1]]=np.nansum(d_trial_mat[all_mask,:,:],axis=0).T
 
         if check_pcnt:
             m0_mask = all_mask & (pcnt==0)
             m1_mask = all_mask & (pcnt==1)
 
-            c_m0lick[:,n*d_trial_mat.shape[1]:(n+1)*d_trial_mat.shape[1]]=np.nanmean(d_trial_mat[m0_mask,:,:],axis=0).T
-            c_m1lick[:,n*d_trial_mat.shape[1]:(n+1)*d_trial_mat.shape[1]]=np.nanmean(d_trial_mat[m1_mask,:,:],axis=0).T
+            c_m0lick[:,n*d_trial_mat.shape[1]:(n+1)*d_trial_mat.shape[1]]=np.nansum(d_trial_mat[m0_mask,:,:],axis=0).T
+            c_m1lick[:,n*d_trial_mat.shape[1]:(n+1)*d_trial_mat.shape[1]]=np.nansum(d_trial_mat[m1_mask,:,:],axis=0).T
 
         if check_omissions:
             o_mask = all_mask & (omissions==1)
             no_o_mask = all_mask & (omissions==0)
-            c_omissions[:,n*d_trial_mat.shape[1]:(n+1)*d_trial_mat.shape[1]]=np.nanmean(d_trial_mat[o_mask,:,:],axis=0).T
-            c_no_omit[:,n*d_trial_mat.shape[1]:(n+1)*d_trial_mat.shape[1]]=np.nanmean(d_trial_mat[no_o_mask,:,:],axis=0).T
+            c_omissions[:,n*d_trial_mat.shape[1]:(n+1)*d_trial_mat.shape[1]]=np.nansum(d_trial_mat[o_mask,:,:],axis=0).T
+            c_no_omit[:,n*d_trial_mat.shape[1]:(n+1)*d_trial_mat.shape[1]]=np.nansum(d_trial_mat[no_o_mask,:,:],axis=0).T
 
 
     f,ax = plt.subplots()

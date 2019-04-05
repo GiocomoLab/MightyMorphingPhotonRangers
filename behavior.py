@@ -10,7 +10,7 @@ import utilities as u
 
 
 
-def learning_curve_plots(data):
+def learning_curve_plots(data,reversal=False):
 
     if isinstance(data,list):
         N = len(data)
@@ -29,6 +29,8 @@ def learning_curve_plots(data):
 
         # plot licking behavior
         trial_info, tstart, tend = u.by_trial_info(d)
+        if reversal:
+            trial_info['pcnt']=1-trial_info['pcnt']
         pcnt_mean = u.avg_by_morph(trial_info['morphs'],trial_info['pcnt'])
         u_morphs = np.sort(np.unique(trial_info['morphs']))
 

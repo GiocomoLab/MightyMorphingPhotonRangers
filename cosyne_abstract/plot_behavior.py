@@ -18,7 +18,8 @@ def LickPlots(data,save = False, dir = None):
     max_pos = np.copy(trial_info['max_pos'])
     max_pos[max_pos>440]=np.nan
 
-    f, (ax, meanlr_ax, lickrat_ax) = b.lick_plot(lick_morph_dict,edges,max_pos=max_pos,smooth=False)
+    f, (ax, meanlr_ax, lickrat_ax) = b.lick_plot(lick_morph_dict,edges,max_pos=max_pos,smooth=False,
+                                    rzone1=(250.,315),rzone0=(350,415))
     if save:
         f.savefig(dir + '_lick_plot.pdf',format='pdf')
         f.savefig(dir + '_lick_plot.svg',format='svg')
@@ -27,8 +28,8 @@ def LickPlots(data,save = False, dir = None):
 
 
 if __name__ == '__main__':
-    mice = ['4139219.3','4139224.2','4139224.3','4139224.5']
-    mice = ['4139261.2']
+    # mice = ['4139219.3','4139224.2','4139224.3','4139224.5']
+    mice = ['4139261.2','4139251.1','4139260.1']
 
 
     df = pp.load_session_db()
@@ -73,7 +74,7 @@ if __name__ == '__main__':
             LickPlots(data,save=True,dir=fname)
 
         data = pp.behavior_dataframe([df_TO['data file'].iloc[i] for i in range(df_TO.shape[0])],concat=False)
-        (f_sess,ax_sess), (f_pcntcorr, ax_pcntcorr), (f_lp, ax_lp)=b.learning_curve_plots(data)
+        (f_sess,ax_sess), (f_pcntcorr, ax_pcntcorr), (f_lp, ax_lp)=b.learning_curve_plots(data,reversal=True)
 
         f_sess.savefig(fname = "%s\%s_sess.pdf" % (dirBase,mouse),format='pdf')
         f_sess.savefig(fname = "%s\%s_sess.svg" % (dirBase,mouse),format='svg')
