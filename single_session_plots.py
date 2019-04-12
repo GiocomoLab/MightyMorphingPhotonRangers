@@ -19,16 +19,45 @@ from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 
 def single_session_figs(sess,savefigs = True):
 
+    VRDat, C, S, A = pp.load_scan_sess(sess,fneu_coeff=.7,analysis='s2p')
+    # get trial by trial info
+    trial_info, tstart_inds, teleport_inds = u.by_trial_info(VRDat)
+    S_trial_mat, occ_trial_mat, edges,centers = u.make_pos_bin_trial_matrices(S,VRDat['pos']._values,VRDat['tstart']._values,VRDat['teleport']._values)
+    S_morph_dict = u.trial_type_dict(S_trial_mat,trial_info['morphs'])
+    occ_morph_dict = u.trial_type_dict(occ_trial_mat,trial_info['morphs'])
+
     # PCA
 
+    # DPCA
+
+    # Variance explained
+
+    # angle between subspaces
 
 
-    # Place cells
+
+    ################ Place cells
+
+    masks, FR, SI = place_cells_calc(S, VRDat['pos']._values,trial_info,
+                    VRDat['tstart']._values, VRDat['teleport']._values,
+                    method='bootstrap',correct_only=False,speed=VRDat.speed._values,
+                    win_trial_perm=True)
+
+    # plot place cells by morph
+    f_pc, ax_pc = plot_placecells(T_morph_dict,masks)
+
+    f_pc.savefig('')
+    # number in each environment
+    print('morph 0 place cells = %g out of %g , %f ' % (masks[0].sum(), masks[0].shape[0], masks[0].sum()/masks[0].shape[0]))
+    print('morph 1 place cells = %g out of %g, %f' % (masks[1].sum(), masks[1].shape[0], masks[1].sum()/masks[1].shape[0]))
+
+    # reward cell plot
+
+    gs = gridspec.GridSpec(20,20)
 
         # population
 
         # 100 single cell examples
-
 
         # reward cell plot
 

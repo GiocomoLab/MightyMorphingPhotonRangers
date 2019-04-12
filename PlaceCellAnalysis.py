@@ -127,6 +127,21 @@ def cell_topo_plot(A_k,vals,fov=[512,796],map = 'cool', min = -1, max = 1):
 
     return A_m, (f,ax)
 
+def plot_top_cells(S_tm,masks,SI):
+    nplacecells = (masks[0] | masks[1]).sum()
+    gs = gridspec.GridSpec(ceil(nplacecells/20)*5,20)
+
+    # SI - combined
+    SI_total = SI[0] + SI[1]
+    si_order = np.argsort(SI_total)
+
+
+    for cell in range(nplacecells): # make this min of 100 and total number of place cells
+        c = u.nansmooth(S_tm[:,:,cell],[0,3])
+        
+        # add gr
+    return f, ax
+
 def reward_cell_scatterplot(fr0, fr1, rzone0 = [250,315], rzone1 = [350,415],tmax= 450):
     f = plt.figure(figsize=[10,10])
     gs = gridspec.GridSpec(5,5)

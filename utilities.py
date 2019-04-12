@@ -48,6 +48,15 @@ class LOTrialO:
         train,test = self.get_masks()
         return train, test
 
+def nansmooth(A,sig):
+    nan_inds = np.isnan(A)
+    A_nanless = np.copy(A)
+    A_nanless[nan_inds]=0
+    One = np.ones\A.shape)
+    One[nan_inds]=.001
+    A_nanless= filters.gaussian_filter(A_nanless,sig)
+    One = filters.gaussian_filter(One,sig)
+    return A_nanless/One
 
 def df(C,ops={'sig_baseline':10,'win_baseline':300,'sig_output':10,'method':'maximin'}):
     if ops['method']=='maximin':
