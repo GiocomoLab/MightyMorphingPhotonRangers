@@ -3,17 +3,14 @@ import matplotlib.gridspec as gridspec
 import numpy as np
 import scipy as sp
 from scipy.ndimage.filters import gaussian_filter1d
-import sqlite3 as sql
-import os
-import pandas as pd
-from datetime import datetime
-from glob import glob
-from utilities import *
-from astropy.convolution import convolve, Gaussian1DKernel
-
+import utilities as u
+import preprocessing as pp
+import PlaceCellAnalysis as pc
+import SimilarityMatrixAnalysis as sm
+from plot_pca import plot_pca
 import sklearn as sk
 from sklearn.decomposition import PCA
-from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
+
 
 
 
@@ -25,10 +22,27 @@ def single_session_figs(sess,savefigs = True):
     S_trial_mat, occ_trial_mat, edges,centers = u.make_pos_bin_trial_matrices(S,VRDat['pos']._values,VRDat['tstart']._values,VRDat['teleport']._values)
     S_morph_dict = u.trial_type_dict(S_trial_mat,trial_info['morphs'])
     occ_morph_dict = u.trial_type_dict(occ_trial_mat,trial_info['morphs'])
+    
+    
+    # plot behavior
+    if sess.scene in ('TwoTower_noTimeout','TwoTower_Timeout','Reversal','Reversal_noTimeout'):
+        # use existing plots
+        
+    else:
+        
+    # speed v position
+    
+    # licks v position
+    
+    
 
     # PCA
+    pcnt = u.correct_trial_mask(trial_info['rewards'],tstart_inds,teleport_inds)
+    S_sm = gaussian_filter1d(S,5,axis=0)
+    f,[ax, aax, aaax] = plot_pca(S_sm,VRDat,[],plot_error=False)
 
     # DPCA
+    
 
     # Variance explained
 
@@ -37,33 +51,33 @@ def single_session_figs(sess,savefigs = True):
 
 
     ################ Place cells
-
-    masks, FR, SI = place_cells_calc(S, VRDat['pos']._values,trial_info,
+    masks, FR, SI = pc.place_cells_calc(S, VRDat['pos']._values,trial_info,
                     VRDat['tstart']._values, VRDat['teleport']._values,
                     method='bootstrap',correct_only=False,speed=VRDat.speed._values,
                     win_trial_perm=True)
 
     # plot place cells by morph
-    f_pc, ax_pc = plot_placecells(T_morph_dict,masks)
+    f_pc, ax_pc = pc.plot_placecells(T_morph_dict,masks)
 
     f_pc.savefig('')
     # number in each environment
     print('morph 0 place cells = %g out of %g , %f ' % (masks[0].sum(), masks[0].shape[0], masks[0].sum()/masks[0].shape[0]))
     print('morph 1 place cells = %g out of %g, %f' % (masks[1].sum(), masks[1].shape[0], masks[1].sum()/masks[1].shape[0]))
-
+    
     # reward cell plot
+    # make tensor for reward location centered position 
+
 
     gs = gridspec.GridSpec(20,20)
 
-        # population
+    # single cell plots
+    
 
-        # 100 single cell examples
+        
 
-        # reward cell plot
-
-
-        #
-
+    # position by morph similarity matrix averaging trials
+    
+    # trial by trial similarity matrix
 #
 #
 # def run_analyses_all_sessions(saveFigs = True):
