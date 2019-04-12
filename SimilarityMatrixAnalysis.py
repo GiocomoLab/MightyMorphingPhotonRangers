@@ -5,6 +5,8 @@ from scipy.ndimage.filters import gaussian_filter1d, gaussian_filter
 import os
 from datetime import datetime
 from glob import glob
+import sklearn.cluster as clust
+
 
 # os.sys.path.append('../')
 import utilities as u
@@ -30,7 +32,6 @@ def single_session(sess,ops = {},plot=True):
     '''calculate similarity matrices, average within the morphs and plot results'''
     # load calcium data and aligned vr
     VRDat, C, S, A = pp.load_scan_sess(sess,fneu_coeff=0.7)
-
     ops = set_default_ops(ops)
 
     if ops['deconv']:
@@ -98,6 +99,123 @@ def single_session(sess,ops = {},plot=True):
             return S, U
 
 
+def plot_trial_simmat(C,trial_info,vmax=.3):
+    '''plot similarity matrices comparing each trial'''
+    f = plt.figure(figsize=[30,12])
+    gs = gridspec.GridSpec(14,30)
+
+    effMorph = trial_info['morphs'] +  trial_info['wallJitter'] + trial_info['bckgndJitter']
+    msort = np.argsort(effMorph)
+
+    x=np.arange(effMorph.size)
+    rmask = trial_info['rewards']==0
+    tnumber = np.arange(x.shape[0])/x.shape[0]
+
+
+    # sort by trial order
+    c_ax = f.add_subplot(gs[:10,:10])
+    c_ax.imshow(C,cmap='Greys',vmin=0,vmax=vmax,aspect='auto')
+    c_ax.set_yticks([])
+    c_ax.set_xticks([])
+
+    m_ax = f.add_subplot(gs[10:12,:10])
+    m_ax.scatter(x,effMorph,c=effMorph,cmap='cool')
+    m_ax.scatter(x[rmask],effMorph[rmask],c='black',s=10)
+    m_ax.set_xlim([0,x.shape[0]])
+    m_ax.set_yticks([])
+    m_ax.set_xticks([])
+
+    t_ax = f.add_subplot(gs[12:,:10])
+    t_ax.scatter(x,tnumber,c=tnumber,cmap='viridis')
+    t_ax.scatter(x[rmask],tnumber[rmask],c='black',s=10)
+    t_ax.set_xlim([0,x.shape[0]])
+    t_ax.set_yticks([])
+
+    # sort similarity matrix by morph
+    C_msort = _sort_simmat(C,msort)
+
+    # sort by morph value
+    cm_ax = f.add_subplot(gs[:10,10:20])
+    cm_ax.imshow(C_msort,cmap='Greys',vmin=0,vmax=vmax,aspect='auto')
+    cm_ax.set_yticks([])
+    cm_ax.set_xticks([])
+
+    mm_ax = f.add_subplot(gs[10:12,10:20])
+    mm_ax.scatter(x,effMorph[msort],c=effMorph[msort],cmap='cool')
+    mm_ax.scatter(x[rmask],effMorph[msort[rmask]],c='black',s=10)
+    mm_ax.set_xlim([0,x.shape[0]])
+    mm_ax.set_yticks([])
+    mm_ax.set_xticks([])
+    tm_ax = f.add_subplot(gs[12:,10:20])
+    tm_ax.scatter(x,tnumber[msort],c=tnumber[msort],cmap='viridis')
+    tm_ax.set_xlim([0,x.shape[0]])
+    tm_ax.set_yticks([])
+
+    # sort similarity matrix by cluster - laplacian eigenmaps
+    clustsort = _sort_clusters(cluster_simmat(C),effMorph)
+    C_csort = _sort_simmat(C,clustsort)
+
+
+    cc_ax = f.add_subplot(gs[:10,20:])
+    cc_ax.imshow(C_csort,cmap='Greys',vmin=0,vmax=vmax,aspect='auto')
+    cc_ax.set_yticks([])
+    cc_ax.set_xticks([])
+    mc_ax = f.add_subplot(gs[10:12,20:])
+    mc_ax.scatter(x,effMorph[clustsort],c=effMorph[clustsort],cmap='cool')
+    mc_ax.scatter(x[rmask],effMorph[clustsort[rmask]],c='black',s=10)
+    mc_ax.set_yticks([])
+    mc_ax.set_xticks([])
+    mc_ax.set_xlim([0,x.shape[0]])
+    tc_ax = f.add_subplot(gs[12:,20:])
+    tc_ax.scatter(x,tnumber[clustsort],c=tnumber[clustsort],cmap='viridis')
+    tc_ax.set_xlim([0,x.shape[0]])
+    tc_ax.set_yticks([])
+
+    return f, [[c_ax,m_ax,t_ax],[cm_ax,mm_ax,tm_ax],[cc_ax,mc_ax,tc_ax]]
+
+def cluster_simmat(C):
+    score = []
+    for c in range(2,10):
+        spectclust = clust.SpectralClustering(n_clusters=c,affinity='precomputed')
+        labels = spectclust.fit_predict(C)
+        s=sk.metrics.silhouette_score(C,labels,metric='precomuted')
+        score.append(np.round(100.*s))
+        print(s*100.)
+
+    c = np.argmax(score)+2
+    spectclust = clust.SpectralClustering(n_clusters=c,affinity='precomputed')
+    spectclust.fit(S_t_rmat)
+    return spectclust.labels_
+
+def _sort_clusters(clustlabels,metric):
+
+    nc = np.unique(clusblabels).shape[0]
+    clustmean = np.array([metric[clustlabels==i].mean() for i in range(nc)])
+    clusterOrder = np.argsort(clustmean)
+    labels = np.zeros(metric.shape)
+
+    for i,cl in enumerate(clusterOrder.tolist()):
+        labels[clustlabels==cl]=i
+
+    return np.argsort(labels)
+
+
+def _sort_simmat(A,sort):
+    A = A[sort,:]
+    return A[:,sort]
+
+
+def trial_simmat(S_tm,m,sig = 3):
+
+    # smooth single cell firing rate
+    S_mat S_tm.reshape([S_tm.shape[0],-1])
+    # normalize by L2 norm
+    S_mat/=np.linalg.norm(S_mat,ord=2,axis=1)
+
+    return np.matmul(S_mat,S_mat.T)
+
+
+
 def plot_simmat(S,m):
     f,ax = plt.subplots(1,1, figsize=[m*2,m*2])
     # m = number of morphs
@@ -131,56 +249,30 @@ def morph_mean_simmat(SM,m):
             col_slice= np.arange(e[j],e[j+1])
             U[i,j]= SM[row_slice,col_slice].ravel().mean()
     return U
-    # edges = np.zeros([e.shape[0]-1,2])
-    # edges[:,0], edges[:,1] = e[:-1], e[1:]
-    # for i in range(m):
-    #     for j in range(m):
-    #         U[i,j] = S[int(edges[i,0]):int(edges[i,1]),int(edges[j,0]):int(edges[j,1])].ravel().mean()
-    #
-    # # normalize to make identity 1
-    # U_rnorm = np.zeros(U.shape)
-    # for z in range(U.shape[0]):
-    #     U_rnorm[z,:] = U[z,:]/U[z,z]
-    #
-    # return U, U_rnorm
+
 
 def morph_simmat(C_morph_dict, corr = False ):
     X = morph_by_cell_mat(C_morph_dict)
-
-    if corr: # center and scale by l2 norm to give correlation
+    if corr: # zscore to get correlation
         X=sp.stats.zscore(X,axis=0)
-        # for j in range(int(X.shape[1])):
-        #     nrm = np.linalg.norm(X[~np.isnan(X[:,j]),j])
-        #
-        #     if nrm>0:
-        #         mu = np.nanmean(X[:,j]).ravel()
-        #         x_dm = X[:,j]-mu
-        #         std = np.nanstd(x_dm)
-        #         X[:,j]=x_dm/std #(X[:,j]-np.nanmean(X[:,j].ravel()))/nrm
-        #     else:
-        #         print(nrm)
-
-
+        return 1/X.shape[0]*np.matmul(X.T,X)
     else: # scale by l2 norm to give cosine similarity
         X/=np.power(X,2).sum(axis=0)[np.newaxis,:]
-    #return np.matmul(X.T,X)
-    return 1/X.shape[0]*np.matmul(X.T,X)
+        return np.matmul(X.T,X)
+
 
 def morph_by_cell_mat(C_morph_dict,sig=3):
     k = 0
     for i,m in enumerate(C_morph_dict.keys()):
-
         if m not in ('all','labels','indices'):
             #print(m, C_morph_dict[m].keys())
             # firing rate maps
             fr = np.nanmean(C_morph_dict[m],axis=0)
             fr = gaussian_filter(fr,[sig,0])
-
             if k == 0:
                 k+=1
                 X = fr.T
             else:
                 print(X.shape,fr.shape)
                 X = np.hstack((X,fr.T))
-
     return X
