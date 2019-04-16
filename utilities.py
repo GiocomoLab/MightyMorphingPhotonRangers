@@ -52,7 +52,7 @@ def nansmooth(A,sig):
     nan_inds = np.isnan(A)
     A_nanless = np.copy(A)
     A_nanless[nan_inds]=0
-    One = np.ones\A.shape)
+    One = np.ones(A.shape)
     One[nan_inds]=.001
     A_nanless= filters.gaussian_filter(A_nanless,sig)
     One = filters.gaussian_filter(One,sig)
@@ -113,7 +113,8 @@ def rate_map(C,position,bin_size=5,min_pos = 0, max_pos=450):
 
 
 def make_pos_bin_trial_matrices(arr, pos, tstart, tstop,method = 'mean',bin_size=5,
-                                max_pos=450,perm=False,speed=None,speed_thr=2):
+                                max_pos=450,perm=False,speed=None,speed_thr=2,
+                                mat_only = False):
     '''make a ntrials x position x neurons tensor'''
     if tstart.shape[0]>1000: # if binary, leaving in for backwards compatibility
         tstart_inds, tstop_inds = np.where(tstart==1)[0],np.where(tstop==1)[0]
@@ -155,7 +156,10 @@ def make_pos_bin_trial_matrices(arr, pos, tstart, tstop,method = 'mean',bin_size
             occ_mat[trial,:] = occ
             #print(map.ravel())
     # self.trial_matrices = trial_matrices
-    return np.squeeze(trial_mat), np.squeeze(occ_mat), bin_edges, bin_centers
+    if mat_only:
+        return np.squeeze(trial_mat)
+    else:
+        return np.squeeze(trial_mat), np.squeeze(occ_mat), bin_edges, bin_centers
 
 def make_time_bin_trial_matrices(C,tstarts,tstops):
 
@@ -205,7 +209,7 @@ def trial_tensor(C,labels,trig_inds,pre=50,post=50):
             print(C[t-pre:,0].shape)
 
             trialMat[ind,:C.shape[0]-t-post,:] = C[t-pre:,:]
-            trialMat[ind,C.shape[0]-t-post:,:] = C[-1,:]
+            trialMat[ind,C.shape[0]-t-post:,:] =  C[-1,:]
 
         else:
             trialMat[ind,:,:] = C[t-pre:t+post,:]
@@ -352,10 +356,12 @@ def avg_by_morph(morphs,mat):
 
 
 
-def smooth_raster(x,mat,ax=None,smooth=False,sig=2,vals=None,tports=None):
+def smooth_raster(x,mat,ax=None,smooth=False,sig=2,vals=None,tports=None,cmap='cool'):
     '''plot mat ( ntrials x len(x)) as a smoothed histogram'''
     if ax is None:
-        f,ax = plt.subplots
+        f,ax = plt.subplots()
+
+    cm = plt.cm.get_cmap(cmap)
 
     if smooth:
         k = Gaussian1DKernel(sig)
@@ -364,12 +370,12 @@ def smooth_raster(x,mat,ax=None,smooth=False,sig=2,vals=None,tports=None):
 
     for ind,i in enumerate(np.arange(mat.shape[0]-1,0,-1)):
         if vals is not None:
-            ax.fill_between(x,mat[ind,:]+i,y2=i,color=plt.cm.cool(np.float(vals[ind])),linewidth=.001)
+            ax.fill_between(x,mat[ind,:]+i,y2=i,color=cm(np.float(vals[ind])),linewidth=.001)
         else:
             ax.fill_between(x,mat[ind,:]+i,y2=i,color = 'black',linewidth=.001)
 
         if tports is not None:
-            ax.scatter(tports[ind],i+.5,color=plt.cm.cool(np.float(vals[ind])),marker='x',s=50)
+            ax.scatter(tports[ind],i+.5,color=cm(np.float(vals[ind])),marker='x',s=50)
     #ax.set_y
     ax.set_yticks(np.arange(0,mat.shape[0],10))
     ax.set_yticklabels(["%d" % l for l in np.arange(mat.shape[0],0,-10).tolist()])

@@ -208,7 +208,7 @@ def _sort_simmat(A,sort):
 def trial_simmat(S_tm,m,sig = 3):
 
     # smooth single cell firing rate
-    S_mat S_tm.reshape([S_tm.shape[0],-1])
+    S_mat = S_tm.reshape([S_tm.shape[0],-1])
     # normalize by L2 norm
     S_mat/=np.linalg.norm(S_mat,ord=2,axis=1)
 

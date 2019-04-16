@@ -74,7 +74,7 @@ def learning_curve_plots(data,reversal=False):
 
     return (f_sess,ax_sess), (f_pcntcorr, ax_pcntcorr), (f_lp, ax_lp)
 
-def lick_plot(d,bin_edges,rzone0=(250.,315),rzone1=(350,415),smooth=True,ratio = True, max_pos=None):
+def lick_plot_task(d,bin_edges,rzone0=(250.,315),rzone1=(350,415),smooth=True,ratio = True, max_pos=None):
     '''standard plot for licking behavior'''
     f = plt.figure(figsize=[15,15])
 
@@ -132,7 +132,7 @@ def lick_plot(d,bin_edges,rzone0=(250.,315),rzone1=(350,415),smooth=True,ratio =
 
         return f, (ax, meanlr_ax)
 
-def plot_speed(x,d,vals,ax=None,f=None,rzone0=(250,315),rzone1=(350,415)):
+def plot_speed_task(x,d,vals,ax=None,f=None,rzone0=(250,315),rzone1=(350,415)):
     '''plot individual trial and average speed as a function of position along the Track
     x = position, d=dictionary output of by_trial_dict'''
     if ax is None:
@@ -156,3 +156,48 @@ def plot_speed(x,d,vals,ax=None,f=None,rzone0=(250,315),rzone1=(350,415)):
     ax[0].set_ylim([0, 60])
     ax[1].set_ylim([0, 60])
     return f,ax
+
+
+def lick_plot_foraging(lick_mat,centers,morphs,reward_pos,smooth=True, max_pos=None):
+    '''plot licking behavior when the animal is doing the 'foraging' task '''
+
+    f = plt.figure(figsize=[15,15])
+    gs = gridspec.GridSpec(4,6)
+    axarr = []
+
+    # lick x pos
+    #       colored by morph
+    ax = f.add_subplot(gs[:,:2])
+    ax = u.smooth_raster(centers,lick_mat,vals=morphs,ax=ax,smooth=smooth)
+    ax.set_ylabel('Trial',size='xx-large')
+    axarr.append(ax)
+
+
+    # sort trials by morph
+    ax = f.add_subplot(gs[:,2:4])
+    msort = np.argsort(morphs)
+    ax = u.smooth_raster(centers,lick_mat[msort,:],vals=morphs[msort],ax=ax,smooth=smooth)
+    ax.set_ylabel('Trial',size='xx-large')
+    axarr.append(ax)
+
+
+    #       colored by position of reward
+
+    ax = f.add_subplot(gs[:,4:])
+    rsort = np.argsort(reward_pos)
+    ax = u.smooth_raster(centers,lick_mat[rsort],vals=reward_pos,ax=ax,smooth=smooth,cmap='viridis')
+    axarr.append(ax)
+
+    # lick x pos centered on entry to reward zone
+    #       colored by morph
+
+    #       colored by positon of reward
+
+
+
+
+
+
+
+
+    return f, axarr

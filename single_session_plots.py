@@ -22,27 +22,60 @@ def single_session_figs(sess,savefigs = True):
     S_trial_mat, occ_trial_mat, edges,centers = u.make_pos_bin_trial_matrices(S,VRDat['pos']._values,VRDat['tstart']._values,VRDat['teleport']._values)
     S_morph_dict = u.trial_type_dict(S_trial_mat,trial_info['morphs'])
     occ_morph_dict = u.trial_type_dict(occ_trial_mat,trial_info['morphs'])
-    
-    
+
+
     # plot behavior
     if sess.scene in ('TwoTower_noTimeout','TwoTower_Timeout','Reversal','Reversal_noTimeout'):
-        # use existing plots
-        
+        # use existing plotting functions
+
+        #plot lick data
+        lick_trial_mat= u.make_pos_bin_trial_matrices(VRDat['lick']._values,
+                                                            VRDat['pos']._values,
+                                                            VRDat['tstart']._values,
+                                                            VRDat['telepot']._values,
+                                                            mat_only=True)
+        lick_morph_dict = u.trial_type_dict(lick_trial_mat,trial_info['morphs'])
+        max_pos = np.copy(trial_info['max_pos'])
+        max_pos[max_pos>440]=np.nan
+
+        if sess.scene in ('TwoTower_noTimeout','TwoTower_Timeout'):
+            f_lick, (ax_lick, meanlr_ax, lickrat_ax) = b.lick_plot_task(lick_morph_dict,edges,max_pos=max_pos,smooth=False,
+                                            rzone1=(250.,315),rzone0=(350,415))
+        else:
+            f_lick, (ax_lick, meanlr_ax, lickrat_ax) = b.lick_plot_task(lick_morph_dict,edges,max_pos=max_pos,smooth=False,
+                                            rzone1=(350,415),rzone0=(250.,315))
+
+        # plot speed data
+        speed_trial_mat = u.make_pos_bin_trial_matrices(VRDat['speed']._values,
+                                                        VRDat['pos']._values,
+                                                        VRDat['tstart']._values,
+                                                        VRDat['telepot']._values,
+                                                        mat_only=True)
+        speed_morph_dict = u.trial_type_dict(speed_trial_mat,trial_info['morphs'])
+        if sess.scene in ('TwoTower_noTimeout','TwoTower_Timeout'):
+            f_speed,ax_speed = b.plot_speed_task(centers,speed_morph_dict,trial_info['morphs'])
+        else:
+            f_speed,ax_speed = b.plot_speed_task(centers,speed_morph_dict,trial_info['morphs'],
+                                                rzone1=(350,415),rzone0=(250.,315))
+
     else:
-        
+        pass
+
     # speed v position
-    
+
+
+
     # licks v position
-    
-    
+
+
 
     # PCA
     pcnt = u.correct_trial_mask(trial_info['rewards'],tstart_inds,teleport_inds)
     S_sm = gaussian_filter1d(S,5,axis=0)
-    f,[ax, aax, aaax] = plot_pca(S_sm,VRDat,[],plot_error=False)
+    f_pca,[ax_pca, aax_pca, aaax_pca] = plot_pca(S_sm,VRDat,[],plot_error=False)
 
     # DPCA
-    
+
 
     # Variance explained
 
@@ -63,20 +96,20 @@ def single_session_figs(sess,savefigs = True):
     # number in each environment
     print('morph 0 place cells = %g out of %g , %f ' % (masks[0].sum(), masks[0].shape[0], masks[0].sum()/masks[0].shape[0]))
     print('morph 1 place cells = %g out of %g, %f' % (masks[1].sum(), masks[1].shape[0], masks[1].sum()/masks[1].shape[0]))
-    
+
     # reward cell plot
-    # make tensor for reward location centered position 
+    # make tensor for reward location centered position
 
 
     gs = gridspec.GridSpec(20,20)
 
     # single cell plots
-    
 
-        
+
+
 
     # position by morph similarity matrix averaging trials
-    
+
     # trial by trial similarity matrix
 #
 #
