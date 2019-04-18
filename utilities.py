@@ -143,7 +143,7 @@ def make_pos_bin_trial_matrices(arr, pos, tstart, tstop,method = 'mean',bin_size
     occ_mat = np.zeros([int(ntrials),len(bin_edges)-1])
 
 
-    #print(int(ntrials),tstart_inds.shape,tstop_inds.shape)
+    # print(int(ntrials),tstart_inds.shape,tstop_inds.shape)
     #print(tstart_inds[[0,1,-1]],tstop_inds[[0,1,-1]])
     for trial in range(int(ntrials)):
 
@@ -277,13 +277,31 @@ def by_trial_info(data,rzone0=(250,315),rzone1=(350,415)):
     clickOn= np.zeros([tstart_inds.shape[0],])
     pos_lick = np.zeros([tstart_inds.shape[0],])
     pos_lick[:] = np.nan
+
+    # foraging task info
+    reward_pos = np.zeros([tstart_inds.shape[0],])
+    reward_pos[:] = np.nan
+    rzone_entry = np.zeros([tstart_inds.shape[0],])
+    rzone_entry[:] = np.nan
+
     for (i,(s,f)) in enumerate(zip(tstart_inds,teleport_inds)):
         sub_frame = data[s:f]
+
         m, counts = sp.stats.mode(sub_frame['morph'],nan_policy='omit')
         if len(m)>0:
             morphs[i] = m
             max_pos[i] = np.nanmax(sub_frame['pos'])
             rewards[i] = np.nansum(sub_frame['reward'])
+
+            if rewards[i]>0:
+                rpos=sub_frame.loc[sub_frame['reward']>0,'pos']
+
+                reward_pos[i]=rpos._values[0]
+
+            rzone_poss = sub_frame['pos']._values[np.ediff1d(sub_frame['rzone']._values,to_end=0)>0]
+            if rzone_poss.size>0:
+                rzone_entry[i] =rzone_poss[0]
+
             zone0_mask = (sub_frame.pos>=rzone0[0]) & (sub_frame.pos<=rzone0[1])
             zone1_mask = (sub_frame.pos>=rzone1[0]) & (sub_frame.pos<=rzone1[1])
             zone0_licks[i] = np.nansum(sub_frame.loc[zone0_mask,'lick'])
@@ -331,7 +349,7 @@ def by_trial_info(data,rzone0=(250,315),rzone1=(350,415)):
 
     trial_info = {'morphs':morphs,'max_pos':max_pos,'rewards':rewards,'zone0_licks':zone0_licks,'zone1_licks':zone1_licks,'zone0_speed':zone0_speed,
                  'zone1_speed':zone1_speed,'pcnt':pcnt,'wallJitter':wallJitter,'towerJitter':towerJitter,'bckgndJitter':bckgndJitter,'clickOn':clickOn,
-                 'pos_lick':pos_lick,'omissions':omissions}
+                 'pos_lick':pos_lick,'omissions':omissions,'reward_pos':reward_pos,'rzone_entry':rzone_entry}
     return trial_info, tstart_inds, teleport_inds
 
 

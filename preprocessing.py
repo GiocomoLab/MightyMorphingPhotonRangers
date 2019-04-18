@@ -218,6 +218,7 @@ def _VR_align_to_2P(vr_dframe,infofile, n_imaging_planes = 1):
     ca_df = pd.DataFrame(columns = vr_dframe.columns, index = np.arange(info['max_idx']))
     ca_time = np.arange(0,1/fr*info['max_idx'],1/fr)
     if (ca_time.shape[0]-ca_df.shape[0])==1:
+        print('one frame correction')
         ca_time = ca_time[:-1] #np.append(ca_time,ca_time[-1]+1/fr)
     print(info['max_idx'],ca_time.shape,ca_df.shape,numVRFrames)
     ca_df.loc[:,'time'] = ca_time
@@ -236,14 +237,14 @@ def _VR_align_to_2P(vr_dframe,infofile, n_imaging_planes = 1):
     ca_df.fillna(method='ffill',inplace=True)
     ca_df.loc[~mask,near_list]=-1.
 
-    cumsum_list = ['dz','lick','reward','tstart','teleport']
+    cumsum_list = ['dz','lick','reward','tstart','teleport','rzone']
 
     f_cumsum = sp.interpolate.interp1d(ttl_times,np.cumsum(vr_dframe[cumsum_list]._values,axis=0),axis=0,kind='slinear')
     # f_cumsum = sp.interpolate.interp1d(vr_time,np.cumsum(vr_dframe[cumsum_list]._values,axis=0),axis=0,kind='slinear')
-    ca_cumsum = np.round(np.insert(f_cumsum(ca_time[mask]),0,[0,0, 0 ,0,0],axis=0))
+    ca_cumsum = np.round(np.insert(f_cumsum(ca_time[mask]),0,[0,0, 0,0 ,0,0],axis=0))
     #print('cumsum',ca_cumsum[-1,:])
-    if ca_cumsum[-1,-1]<ca_cumsum[-1,-2]:
-        ca_cumsum[-1,-1]+=1
+    if ca_cumsum[-1,-2]<ca_cumsum[-1,-3]:
+        ca_cumsum[-1,-2]+=1
 
 
     ca_df.loc[mask,cumsum_list] = np.diff(ca_cumsum,axis=0)
@@ -340,7 +341,7 @@ def _get_frame(f,fix_teleports=True):
                     break
 
         tstart_inds_vec = np.zeros([frame.shape[0],])
-        #print('fix teleports',frame.shape,tstart_inds.shape,teleport_inds.shape)
+        # print('fix teleports',frame.shape,tstart_inds.shape,teleport_inds.shape)
         tstart_inds_vec[tstart_inds] = 1
 
         teleport_inds_vec = np.zeros([frame.shape[0],])

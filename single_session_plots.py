@@ -23,50 +23,51 @@ def single_session_figs(sess,savefigs = True):
     S_morph_dict = u.trial_type_dict(S_trial_mat,trial_info['morphs'])
     occ_morph_dict = u.trial_type_dict(occ_trial_mat,trial_info['morphs'])
 
+    effMorph = trial_info['morphs']+trial_info['wallJitter']+trial_info['bckgndJitter']
+    reward_pos = trial_info['reward_pos']
+    reward_pos[np.isnan(reward_pos)]= 480
+
+    #lick data
+    lick_trial_mat= u.make_pos_bin_trial_matrices(VRDat['lick']._values,
+                                                        VRDat['pos']._values,
+                                                        VRDat['tstart']._values,
+                                                        VRDat['telepot']._values,
+                                                        mat_only=True)
+    lick_morph_dict = u.trial_type_dict(lick_trial_mat,trial_info['morphs'])
+    max_pos = np.copy(trial_info['max_pos'])
+    max_pos[max_pos>440]=np.nan
+
+    # plot speed data
+    speed_trial_mat = u.make_pos_bin_trial_matrices(VRDat['speed']._values,
+                                                    VRDat['pos']._values,
+                                                    VRDat['tstart']._values,
+                                                    VRDat['telepot']._values,
+                                                    mat_only=True)
+    speed_morph_dict = u.trial_type_dict(speed_trial_mat,trial_info['morphs'])
+
 
     # plot behavior
     if sess.scene in ('TwoTower_noTimeout','TwoTower_Timeout','Reversal','Reversal_noTimeout'):
         # use existing plotting functions
 
-        #plot lick data
-        lick_trial_mat= u.make_pos_bin_trial_matrices(VRDat['lick']._values,
-                                                            VRDat['pos']._values,
-                                                            VRDat['tstart']._values,
-                                                            VRDat['telepot']._values,
-                                                            mat_only=True)
-        lick_morph_dict = u.trial_type_dict(lick_trial_mat,trial_info['morphs'])
-        max_pos = np.copy(trial_info['max_pos'])
-        max_pos[max_pos>440]=np.nan
+
 
         if sess.scene in ('TwoTower_noTimeout','TwoTower_Timeout'):
             f_lick, (ax_lick, meanlr_ax, lickrat_ax) = b.lick_plot_task(lick_morph_dict,edges,max_pos=max_pos,smooth=False,
-                                            rzone1=(250.,315),rzone0=(350,415))
+                                            rzone0=(250.,315),rzone1=(350,415))
         else:
             f_lick, (ax_lick, meanlr_ax, lickrat_ax) = b.lick_plot_task(lick_morph_dict,edges,max_pos=max_pos,smooth=False,
-                                            rzone1=(350,415),rzone0=(250.,315))
+                                            rzone1=(350.,415),rzone0=(250,315))
 
-        # plot speed data
-        speed_trial_mat = u.make_pos_bin_trial_matrices(VRDat['speed']._values,
-                                                        VRDat['pos']._values,
-                                                        VRDat['tstart']._values,
-                                                        VRDat['telepot']._values,
-                                                        mat_only=True)
-        speed_morph_dict = u.trial_type_dict(speed_trial_mat,trial_info['morphs'])
         if sess.scene in ('TwoTower_noTimeout','TwoTower_Timeout'):
-            f_speed,ax_speed = b.plot_speed_task(centers,speed_morph_dict,trial_info['morphs'])
+            f_speed,ax_speed = b.plot_speed_task(centers,speed_morph_dict,trial_info['morphs'],
+                                                    rzone0=(250.,315),rzone1=(350,415))
         else:
             f_speed,ax_speed = b.plot_speed_task(centers,speed_morph_dict,trial_info['morphs'],
-                                                rzone1=(350,415),rzone0=(250.,315))
-
+                                                    rzone1=(250.,315),rzone0=(350,415))
     else:
-        pass
-
-    # speed v position
-
-
-
-    # licks v position
-
+        f_lick, axarr_lick = b.behavior_raster_foraging(lick_trial_mat,centers,effMorph,reward_pos/480.,smooth=False)
+        f_speed,axarr_speed = b.behavior_raster_foraging(speed_trial_mat,centers,effMorph,reward_pos/480.,smooth=False)
 
 
     # PCA

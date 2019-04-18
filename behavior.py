@@ -158,7 +158,7 @@ def plot_speed_task(x,d,vals,ax=None,f=None,rzone0=(250,315),rzone1=(350,415)):
     return f,ax
 
 
-def lick_plot_foraging(lick_mat,centers,morphs,reward_pos,smooth=True, max_pos=None):
+def behavior_raster_foraging(lick_mat,centers,morphs,reward_pos,smooth=True, max_pos=None):
     '''plot licking behavior when the animal is doing the 'foraging' task '''
 
     f = plt.figure(figsize=[15,15])
@@ -168,7 +168,7 @@ def lick_plot_foraging(lick_mat,centers,morphs,reward_pos,smooth=True, max_pos=N
     # lick x pos
     #       colored by morph
     ax = f.add_subplot(gs[:,:2])
-    ax = u.smooth_raster(centers,lick_mat,vals=morphs,ax=ax,smooth=smooth)
+    ax = u.smooth_raster(centers,lick_mat,vals=morphs,ax=ax,smooth=smooth,cmap='cool')
     ax.set_ylabel('Trial',size='xx-large')
     axarr.append(ax)
 
@@ -176,8 +176,7 @@ def lick_plot_foraging(lick_mat,centers,morphs,reward_pos,smooth=True, max_pos=N
     # sort trials by morph
     ax = f.add_subplot(gs[:,2:4])
     msort = np.argsort(morphs)
-    ax = u.smooth_raster(centers,lick_mat[msort,:],vals=morphs[msort],ax=ax,smooth=smooth)
-    ax.set_ylabel('Trial',size='xx-large')
+    ax = u.smooth_raster(centers,lick_mat[msort,:],vals=morphs[msort],ax=ax,smooth=smooth,cmap='cool')
     axarr.append(ax)
 
 
@@ -185,19 +184,46 @@ def lick_plot_foraging(lick_mat,centers,morphs,reward_pos,smooth=True, max_pos=N
 
     ax = f.add_subplot(gs[:,4:])
     rsort = np.argsort(reward_pos)
-    ax = u.smooth_raster(centers,lick_mat[rsort],vals=reward_pos,ax=ax,smooth=smooth,cmap='viridis')
+    ax = u.smooth_raster(centers,lick_mat[rsort,:],vals=reward_pos[rsort],ax=ax,smooth=smooth,cmap='viridis')
+    ax.axvline(200,ymin=0,ymax=lick_mat.shape[0]+1)
     axarr.append(ax)
+
+    for i,a in enumerate(axarr):
+        for edge in ['top','right']:
+            a.spines[edge].set_visible(False)
+        if i>0:
+            # a.spines['left'].set_visible(False)
+            a.set_yticklabels([])
+
 
     # lick x pos centered on entry to reward zone
     #       colored by morph
 
     #       colored by positon of reward
 
-
-
-
-
-
-
-
     return f, axarr
+
+
+
+
+# def plot_speed_foraging(speedmat,centers,morphs,reward_pos):
+#     '''plot individual trial and average speed as a function of position along the Track
+#     x = position, d=dictionary output of by_trial_dict'''
+#
+#     f, ax = plt.subplots(2,2,figsize=[10,5])
+#     for i,m in enumerate(np.unique(vals)):
+#         for j in range(d[m].shape[0]):
+#             tmp = ax[0].plot(x,d[m][j,:],color = plt.cm.cool(np.float(m)),alpha=.1)
+#         tmp = ax[0].plot(x,np.nanmean(d[m],axis=0),color=plt.cm.cool(np.float(m)),zorder=1)
+#         tmp = ax[1].plot(x,np.nanmean(d[m],axis=0),color=plt.cm.cool(np.float(m)))
+#
+#
+#     for edge in ['top','right']:
+#         ax[0].spines[edge].set_visible(False)
+#         ax[1].spines[edge].set_visible(False)
+#
+#     ax[0].set_xlabel('Position')
+#     ax[0].set_ylabel('Speed cm/s')
+#     ax[0].set_ylim([0, 60])
+#     ax[1].set_ylim([0, 60])
+#     return f,ax

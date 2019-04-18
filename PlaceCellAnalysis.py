@@ -18,7 +18,7 @@ import matplotlib.gridspec as gridspec
 
 def single_session(sess, savefigs = False,fbase=None,deconv=False,
                 correct_only=False,speedThr=False,method='bootstrap',
-                win_trial_perm=False,cell_method='s2p'):
+                win_trial_perm=False,cell_method='s2p',morphlist=[0,1]):
 
     # load calcium data and aligned vr
     VRDat, C, S, A = pp.load_scan_sess(sess,fneu_coeff=.7,analysis=cell_method)
@@ -41,11 +41,12 @@ def single_session(sess, savefigs = False,fbase=None,deconv=False,
         masks, FR, SI = place_cells_calc(C, VRDat['pos']._values,trial_info,
                         VRDat['tstart']._values, VRDat['teleport']._values,
                         method=method,correct_only=correct_only,speed=VRDat.speed._values,
-                        win_trial_perm=win_trial_perm)
+                        win_trial_perm=win_trial_perm,morphlist=morphlist)
     else:
         masks, FR, SI = place_cells_calc(C, VRDat['pos']._values,trial_info,
                         VRDat['tstart']._values, VRDat['teleport']._values,
-                        method=method,correct_only=correct_only, win_trial_perm=win_trial_perm)
+                        method=method,correct_only=correct_only, win_trial_perm=win_trial_perm,
+                        morphlist=morphlist)
 
     # plot place cells by morph
     f_pc, ax_pc = plot_placecells(C_morph_dict,masks)
@@ -138,7 +139,7 @@ def plot_top_cells(S_tm,masks,SI):
 
     for cell in range(nplacecells): # make this min of 100 and total number of place cells
         c = u.nansmooth(S_tm[:,:,cell],[0,3])
-        
+
         # add gr
     return f, ax
 
@@ -230,7 +231,7 @@ def spatial_info(frmap,occupancy):
 
 def place_cells_calc(C, position, trial_info, tstart_inds,
                 teleport_inds,method="all",pthr = .95,correct_only=False,
-                speed=None,win_trial_perm=False):
+                speed=None,win_trial_perm=False,morphlist = [0,1]):
     '''get masks for significant place cells that have significant place info
     in both even and odd trials'''
 
@@ -252,7 +253,7 @@ def place_cells_calc(C, position, trial_info, tstart_inds,
 
     # for each morph value
     FR,masks,SI = {}, {}, {}
-    for m in [0, 1]:
+    for m in morphlist:
 
         FR[m]= {}
         SI[m] = {}
