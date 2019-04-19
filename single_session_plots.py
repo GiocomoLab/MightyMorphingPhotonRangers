@@ -80,18 +80,15 @@ def single_session_figs(sess,savefigs = True):
 
     # Variance explained
 
-    # angle between subspaces
-
-
 
     ################ Place cells
     masks, FR, SI = pc.place_cells_calc(S, VRDat['pos']._values,trial_info,
                     VRDat['tstart']._values, VRDat['teleport']._values,
                     method='bootstrap',correct_only=False,speed=VRDat.speed._values,
-                    win_trial_perm=True)
+                    win_trial_perm=True,morphlist=[0,.25,.5,.75,1.])
 
     # plot place cells by morph
-    f_pc, ax_pc = pc.plot_placecells(T_morph_dict,masks)
+    f_pc, ax_pc = pc.plot_placecells(S_morph_dict,masks)
 
     f_pc.savefig('')
     # number in each environment
@@ -100,6 +97,7 @@ def single_session_figs(sess,savefigs = True):
 
     # reward cell plot
     # make tensor for reward location centered position
+    
 
 
     gs = gridspec.GridSpec(20,20)
