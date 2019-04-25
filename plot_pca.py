@@ -29,14 +29,15 @@ def plot_pca(C,VRDat,pcnt,plot_err=False):
     pos = VRDat.loc[trialMask,'pos']._values
     pos = pos[::5]
 
-    print(pcnt.shape)
-    pcnt = pcnt[trialMask]
-    pcnt = pcnt[::5]
-    print(pcnt.shape,XX.shape)
+
     time = VRDat.loc[trialMask,'time']._values
     time = time[::5]
 
     if plot_err:
+        print(pcnt.shape)
+        pcnt = pcnt[trialMask]
+        pcnt = pcnt[::5]
+        print(pcnt.shape,XX.shape)
         ax=f.add_subplot(141,projection='3d')
         s_cxt=ax.scatter(XX[pcnt>0,0],XX[pcnt>0,1],XX[pcnt>0,2],c=morph[pcnt>0],cmap='cool',s=2,alpha=1)
         ax_e = f.add_subplot(142,projection='3d')

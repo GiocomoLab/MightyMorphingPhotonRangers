@@ -8,6 +8,7 @@ import pandas as pd
 from datetime import datetime
 from glob import glob
 from random import randrange
+import math
 
 os.sys.path.append('../')
 import utilities as u
@@ -128,15 +129,18 @@ def cell_topo_plot(A_k,vals,fov=[512,796],map = 'cool', min = -1, max = 1):
 
     return A_m, (f,ax)
 
-def plot_top_cells(S_tm,masks,SI):
+def plot_top_cells(S_tm,masks,SI,morph,maxcells=400):
     allmask = masks[0]
     for k,v in masks.items():
         allmask = allmask | v
 
-    nplacecells = allmask.sum()
+    nplacecells = np.minimum(allmask.sum(),maxcells)
 
-    f = plt.figure(figsize=[nplacecells/20,20])
-    gs = gridspec.GridSpec(ceil(nplacecells/20)*5,20)
+    xstride = 3
+    ystride = 4
+    nperrow = 8
+    f = plt.figure(figsize=[nperrow*xstride,nplacecells/nperrow*ystride])
+    gs = gridspec.GridSpec(math.ceil(nplacecells/nperrow)*ystride,xstride*nperrow)
 
     SI_total = [SI[m]['all'] for m in SI.keys()]
     SIt = SI_total[0]
@@ -144,12 +148,42 @@ def plot_top_cells(S_tm,masks,SI):
         SIt+=ind
     si_order = np.argsort(SIt)[::-1]
 
+    morph_order = np.argsort(morph)
+    morph_s = morph[morph_order]
+
     for cell in range(nplacecells): # make this min of 100 and total number of place cells
-        c = u.nansmooth(S_tm[:,:,cell],[0,3])
+        c = u.nansmooth(np.squeeze(S_tm[:,:,si_order[cell]]),[0,3])
+        c/=np.nanmean(c.ravel())
         # add plots
+        row_i = int(ystride*math.floor(cell/nperrow))
+        col_i = int(xstride*(cell%nperrow))
+        # print(row_i,col_i)
+        trialsort_ax = f.add_subplot(gs[row_i:row_i+ystride-1,col_i+1])
+        trialsort_ax.imshow(c,cmap='magma',aspect='auto')
+        tick_inds = np.arange(0,c.shape[0],10)
 
 
-    return f, ax
+        morphsort_ax = f.add_subplot(gs[row_i:row_i+ystride-1,col_i])
+        morphsort_ax.imshow(c[morph_order,:],cmap='magma',aspect='auto')
+        tick_labels = ["%.2f" % morph_s[i] for i in tick_inds]
+
+
+
+
+
+        morphsort_ax.set_yticks(tick_inds)
+        morphsort_ax.set_yticklabels(tick_labels,fontsize=5)
+        trialsort_ax.set_yticks([])
+        morphsort_ax.set_xticks([])
+        trialsort_ax.set_xticks([])
+        morphsort_ax.set_title("%d" % si_order[cell])
+
+        if row_i==0 and col_i==0:
+            trialsort_ax.set_ylabel('Trial #')
+            trialsort_ax.yaxis.set_label_position('right')
+            morphsort_ax.set_ylabel('Mean Morph')
+
+    return f
 
 def reward_cell_scatterplot(fr0, fr1, rzone0 = [250,315], rzone1 = [350,415],tmax= 450):
     f = plt.figure(figsize=[10,10])

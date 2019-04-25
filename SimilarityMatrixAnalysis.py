@@ -5,6 +5,7 @@ from scipy.ndimage.filters import gaussian_filter1d, gaussian_filter
 import os
 from datetime import datetime
 from glob import glob
+import sklearn as sk
 import sklearn.cluster as clust
 
 
@@ -178,18 +179,18 @@ def cluster_simmat(C):
     for c in range(2,10):
         spectclust = clust.SpectralClustering(n_clusters=c,affinity='precomputed')
         labels = spectclust.fit_predict(C)
-        s=sk.metrics.silhouette_score(C,labels,metric='precomuted')
+        s=sk.metrics.silhouette_score(1-C,labels,metric='precomputed')
         score.append(np.round(100.*s))
         print(s*100.)
 
     c = np.argmax(score)+2
     spectclust = clust.SpectralClustering(n_clusters=c,affinity='precomputed')
-    spectclust.fit(S_t_rmat)
+    spectclust.fit(C)
     return spectclust.labels_
 
 def _sort_clusters(clustlabels,metric):
 
-    nc = np.unique(clusblabels).shape[0]
+    nc = np.unique(clustlabels).shape[0]
     clustmean = np.array([metric[clustlabels==i].mean() for i in range(nc)])
     clusterOrder = np.argsort(clustmean)
     labels = np.zeros(metric.shape)
