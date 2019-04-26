@@ -2,7 +2,7 @@ from sklearn.decomposition import NMF
 from utils import align_factors
 from tqdm import tqdm
 import numpy as np
-from cv import masked_pca
+from cv import masked_pca, cv_pca
 import os
 
 def fit_ensemble_masked(data,ranks,n_replicates=5,M=None):
@@ -27,7 +27,7 @@ def fit_ensemble_masked(data,ranks,n_replicates=5,M=None):
 
             for m in range(n_replicates):
                 print("replicate",m)
-                U,Vt,train_err = masked_pca(data,r,M=M,nonneg=True)
+                U,Vt,train_err = cv_pca(data,r,M=M,nonneg=True)
                 results[r]['factors'].append([U, Vt])
                 #est = np.dot(W, H)
                 results[r]['rmse'].append(train_err)
@@ -46,7 +46,7 @@ def fit_ensemble_masked(data,ranks,n_replicates=5,M=None):
 
         # compute svd for comparison
         #u, s, vt = np.linalg.svd(data, full_matrices=False)
-        u,vt,train_err = masked_pca(data,np.max(ranks),nonneg=False)
+        u,vt,train_err = cv_pca(data,np.max(ranks),nonneg=False)
 
         for r in ranks:
             resid = np.memmap(os.path.join("E:\\","resid.dat"),dtype='float32',mode='r+',shape=tuple(data.shape))
