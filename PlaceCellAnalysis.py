@@ -10,7 +10,7 @@ from glob import glob
 from random import randrange
 import math
 
-os.sys.path.append('../')
+#os.sys.path.append('../')
 import utilities as u
 import preprocessing as pp
 import matplotlib.gridspec as gridspec

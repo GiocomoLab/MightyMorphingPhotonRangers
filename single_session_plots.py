@@ -46,10 +46,11 @@ def single_session_figs(sess,dir = "G:\\My Drive\\Figures\\TwoTower\\SingleSessi
 
 
     VRDat, C, S, A = pp.load_scan_sess(sess,fneu_coeff=.7,analysis='s2p')
-    S /= Smean[np.newaxis,:]
+    S /= np.nanmean(S,axis=0)[np.newaxis,:]
     # get trial by trial info
     trial_info, tstart_inds, teleport_inds = u.by_trial_info(VRDat)
     S_trial_mat, occ_trial_mat, edges,centers = u.make_pos_bin_trial_matrices(S,VRDat['pos']._values,VRDat['tstart']._values,VRDat['teleport']._values,bin_size=10)
+    S_trial_mat[np.isnan(S_trial_mat)]=0
     S_morph_dict = u.trial_type_dict(S_trial_mat,trial_info['morphs'])
     occ_morph_dict = u.trial_type_dict(occ_trial_mat,trial_info['morphs'])
 
@@ -162,7 +163,7 @@ def single_session_figs(sess,dir = "G:\\My Drive\\Figures\\TwoTower\\SingleSessi
         S_tmat = S_tmat/np.linalg.norm(S_tmat,ord=2,axis=-1)[:,np.newaxis]
         S_t_rmat = np.matmul(S_tmat,S_tmat.T)
 
-        f_stsm,axtup_stsm = sm.plot_trial_simmat(S_t_rmat,trial_info,vmax=.7)
+        f_stsm,axtup_stsm = sm.plot_trial_simmat(S_t_rmat,trial_info)
 
 
         # spectral embedding of single trial similarity matrix
@@ -189,9 +190,11 @@ def single_session_figs(sess,dir = "G:\\My Drive\\Figures\\TwoTower\\SingleSessi
         trialmask = np.zeros([S_tmat.shape[0]])
         trialmask[np.random.permutation(S_tmat.shape[0])[:int(S_tmat.shape[0]/2)]]=1
         trialmask = trialmask>0.
+        trialmask[:3]=False
 
         results = nmf.fit_ensemble(S_tmat[trialmask,:],np.arange(1,11),n_replicates=5)
-        f_ens,ax_ens = ensemble_plots.plot_rmse(results)
+        f_ens,ax_ens = plt.subplots()
+        ensemble_plots.plot_rmse(results,ax=ax_ens)
 
         # assuming 2 is the number of components
         W_train,H_train = results[2]['factors'][0][0], results[2]['factors'][0][1]

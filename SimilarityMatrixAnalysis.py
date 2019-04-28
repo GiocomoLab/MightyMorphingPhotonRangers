@@ -100,8 +100,13 @@ def single_session(sess,ops = {},plot=True):
             return S, U
 
 
-def plot_trial_simmat(C,trial_info,vmax=.3):
+def plot_trial_simmat(C,trial_info,vmax=None):
     '''plot similarity matrices comparing each trial'''
+
+    if vmax is None:
+        vmax = np.percentile(C.ravel(),95)
+
+
     f = plt.figure(figsize=[30,12])
     gs = gridspec.GridSpec(14,30)
 

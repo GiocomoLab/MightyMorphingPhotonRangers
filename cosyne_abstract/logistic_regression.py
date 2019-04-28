@@ -1,5 +1,5 @@
 import matplotlib.pyplot as plt
-from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
 import numpy as np
 import scipy as sp
 from scipy.ndimage import filters
@@ -26,7 +26,8 @@ def single_session(sess):
 
     train_mask = pos_mask & ((VRDat.morph==1) | (VRDat.morph==0.))
 
-    lr = LogisticRegression(C=.001,penalty='l2',class_weight="balanced",multi_class='multinomial',solver='lbfgs')
+    # lr = LogisticRegression(C=.001,penalty='l2',class_weight="balanced",multi_class='multinomial',solver='lbfgs')
+    lr = LogisticRegressionCV(Cs=5,penalty='l2',class_weight="balanced",multi_class='multinomial')
     X = np.digitize(VRDat.pos._values,bin_edges)+nbins*VRDat.morph._values*pos_mask
     Xhat =np.zeros([X.shape[0],nbins*2])
     train_trials = (trial_info['morphs']==0) | (trial_info['morphs']==1)
@@ -200,17 +201,17 @@ if __name__ == '__main__':
 
                     fname = "%s\\%s_%d_Xhat.pkl" % (dirbase,sess['DateFolder'],sess['SessionNumber'])
                     print(fname)
-                    if os.path.isfile(fname):
-                        print("LOOCV results exist")
-                        with open(fname,"rb") as f:
-                            d = pickle.load(f)
-                            Xhat=d['Xhat']
-
-                    else:
-                        print("LOOCV results don't exist")
-                        Xhat = single_session(sess)
-                        with open(fname,"wb") as f:
-                            pickle.dump({'Xhat':Xhat},f)
+                    # if os.path.isfile(fname):
+                    #     print("LOOCV results exist, overwriting")
+                    #     with open(fname,"rb") as f:
+                    #         d = pickle.load(f)
+                    #         Xhat=d['Xhat']
+                    #
+                    # else:
+                    #     print("LOOCV results don't exist")
+                    Xhat = single_session(sess)
+                    with open(fname,"wb") as f:
+                        pickle.dump({'Xhat':Xhat},f)
 
 
                     VRDat,C, S, A = pp.load_scan_sess(sess)
