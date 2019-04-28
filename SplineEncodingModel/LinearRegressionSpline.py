@@ -102,16 +102,39 @@ class EncodingModel:
             pass
 
         self.coef_ = mdl.coef_
-        self.lambda_ = mdl.alpha_
+        self.alpha_ = mdl.alpha_
 
     def predict_linear(self,X):
         print(self.coef_.shape,X.shape)
         return np.matmul(X,self.coef_.T)
 
-    def fit_poisson(self,X,y):
+    def fit_poisson(self,X,y,alpha=.1):
+        coefs0 = np.random.rand([X.shape[1],1])
+        res = sp.optimize.fmin_ncg(self._f_poisson,coefs0,self._grad_poisson,self._hessian_poisson,args=(X,y,alpha))
+        self.coef_ = res[0]
+        self.alpha_=alpha
 
+    def _f_poisson(coefs,X,y,alpha):
+        u = np.matmul(X,coefs)
+        rate = np.exp(u)
 
-        pass
+        f_l2 = .5*alpha*np.linalg.norm(coefs.ravel(),2)
+        return (rate-np.multiply(y,np.log(rate))).sum()  + f_l2
+
+    def _grad_poisson(coefs,X,y,alpha):
+        u = np.matmul(X,coefs)
+        rate = np.exp(u)
+
+        return np.matmul(X.T,rate-y) + alpha*coefs
+
+    def _hessian_poisson(coefs,X,y,alpha):
+        u = np.matmul(X,coefs)
+        rate = np.exp(u)
+
+        rX = rate*X
+        return np.matmul(rX.T,X) + alpha*np.eye(coefs.size)
+#
 
     def predict_poisson(self,X):
-        pass
+        return np.exp(np.matmul(X,self.coef_.T))
+        
