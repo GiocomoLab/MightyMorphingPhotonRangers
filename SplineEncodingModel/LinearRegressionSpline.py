@@ -16,6 +16,7 @@ class EncodingModel:
                     [2*s, s-3, 3-2*s, -s],
                     [-s, 0, s, 0,],
                     [0, 1, 0, 0]])
+        print(self.pos_ctrl_pts.shape)
         #self.coefs = np.zeros([self._n_coefs,])
 
     def _set_ops(self,ops_in):
@@ -27,9 +28,11 @@ class EncodingModel:
         'RidgeCV':True,
         's':.5}
         for k,v in ops_in.items():
+            #print(k,v)
             ops_out[k]=v
 
         self.ops = ops_out
+        #print(self.ops)
         self._n_coefs = (self.ops['n_ctrl_pts_pos']+2)*(self.ops['n_ctrl_pts_morph']+2)
 
     def _set_ctrl_pts(self):
@@ -60,7 +63,7 @@ class EncodingModel:
             # print(p,m)
             x_p = self._1d_spline_coeffs(self.pos_ctrl_pts,p)
             x_m = self._1d_spline_coeffs(self.morph_ctrl_pts,m)
-
+            #print(x_p.shape,x_m.shape)
             x_pm = np.matmul(x_p.reshape([-1,1]),x_m.reshape([1,-1]))
             splbasis[i,:]=x_pm.ravel()
 
@@ -105,36 +108,37 @@ class EncodingModel:
         self.alpha_ = mdl.alpha_
 
     def predict_linear(self,X):
-        print(self.coef_.shape,X.shape)
+        #print(self.coef_.shape,X.shape)
         return np.matmul(X,self.coef_.T)
 
     def fit_poisson(self,X,y,alpha=.1):
-        coefs0 = np.random.rand([X.shape[1],1])
-        res = sp.optimize.fmin_ncg(self._f_poisson,coefs0,self._grad_poisson,self._hessian_poisson,args=(X,y,alpha))
-        self.coef_ = res[0]
+        coefs0 = np.random.rand(X.shape[1],1)
+        coef_opt= sp.optimize.fmin_ncg(_f_poisson,coefs0,_grad_poisson,fhess=_hessian_poisson,args=(X,y,alpha))
+        self.coef_ = coef_opt.reshape([-1,1])
+
         self.alpha_=alpha
 
-    def _f_poisson(coefs,X,y,alpha):
-        u = np.matmul(X,coefs)
-        rate = np.exp(u)
-
-        f_l2 = .5*alpha*np.linalg.norm(coefs.ravel(),2)
-        return (rate-np.multiply(y,np.log(rate))).sum()  + f_l2
-
-    def _grad_poisson(coefs,X,y,alpha):
-        u = np.matmul(X,coefs)
-        rate = np.exp(u)
-
-        return np.matmul(X.T,rate-y) + alpha*coefs
-
-    def _hessian_poisson(coefs,X,y,alpha):
-        u = np.matmul(X,coefs)
-        rate = np.exp(u)
-
-        rX = rate*X
-        return np.matmul(rX.T,X) + alpha*np.eye(coefs.size)
-#
-
     def predict_poisson(self,X):
-        return np.exp(np.matmul(X,self.coef_.T))
-        
+        return np.exp(np.matmul(X,self.coef_))
+
+
+def _f_poisson(coefs,X,y,alpha):
+    u = np.matmul(X,coefs)
+    rate = np.exp(u)
+
+    f_l2 = .5*alpha*np.linalg.norm(coefs[:-1].ravel(),2)
+    return (rate-np.multiply(y,np.log(rate))).sum()  + f_l2
+
+def _grad_poisson(coefs,X,y,alpha):
+    u = np.matmul(X,coefs)
+    rate = np.exp(u)
+
+    return np.matmul(X.T,rate-y) + alpha*np.append(coefs[:-1],0)
+
+def _hessian_poisson(coefs,X,y,alpha):
+    u = np.matmul(X,coefs)
+    rate = np.exp(u)
+
+    rX = rate[:,np.newaxis]*X
+    return np.matmul(rX.T,X) + alpha*np.eye(coefs.size)
+#

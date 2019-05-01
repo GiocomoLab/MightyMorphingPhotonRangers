@@ -42,7 +42,7 @@ def single_session(sess):
     return Xhat
 
 def plot_decoding(data_dict,rzone0=[250,315],rzone1=[350,415],save=False,
-                prefix=None):
+                prefix=None,plot_rzone=False):
     rzone0 = [i/20 for i in rzone0]
     rzone1 = [i/20 for i in rzone1]
 
@@ -70,10 +70,11 @@ def plot_decoding(data_dict,rzone0=[250,315],rzone1=[350,415],save=False,
 
         ax.plot(pos_binned[start:stop], color = plt.cm.cool(0.),linewidth=2,zorder=0,alpha=.5)
         ax.plot(pos_binned[start:stop]+npos_bins, color = plt.cm.cool(1.),linewidth=2,zorder=0,alpha=.5)
-        ax.fill_between(np.arange(stop-start),rzone0[0],y2 = rzone0[1],color=plt.cm.cool(0.),alpha=.2)
-        ax.fill_between(np.arange(stop-start),rzone1[0],y2 = rzone1[1],color=plt.cm.cool(1.),alpha=.2)
-        ax.fill_between(np.arange(stop-start),rzone0[0]+npos_bins,y2 = rzone0[1]+npos_bins,color=plt.cm.cool(0.),alpha=.2)
-        ax.fill_between(np.arange(stop-start),rzone1[0]+npos_bins,y2 = rzone1[1]+npos_bins,color=plt.cm.cool(1.),alpha=.2)
+        if plot_rzone:
+            ax.fill_between(np.arange(stop-start),rzone0[0],y2 = rzone0[1],color=plt.cm.cool(0.),alpha=.2)
+            ax.fill_between(np.arange(stop-start),rzone1[0],y2 = rzone1[1],color=plt.cm.cool(1.),alpha=.2)
+            ax.fill_between(np.arange(stop-start),rzone0[0]+npos_bins,y2 = rzone0[1]+npos_bins,color=plt.cm.cool(0.),alpha=.2)
+            ax.fill_between(np.arange(stop-start),rzone1[0]+npos_bins,y2 = rzone1[1]+npos_bins,color=plt.cm.cool(1.),alpha=.2)
         ax.set_xlim([0,stop-start])
         ax.set_xticks([])
         ax.set_yticks([])
@@ -175,7 +176,8 @@ if __name__ == '__main__':
     # '4139265.5','4139266.3']
     # mice = ['4139260.1','4139260.2','4139261.2','4139265.3','4139265.4',
     # '4139265.5','4139266.3']
-    mice = ['4222153.1', '4222153.2', '4222153.2', '4222154.1']
+    mice = ['4222153.1', '4222153.2', '4222153.2', '4222154.1','4139265.3','4139265.4',
+     '4139265.5',]
 
     df = pp.load_session_db()
     df = df[df['RewardCount']>30]
@@ -201,17 +203,17 @@ if __name__ == '__main__':
 
                     fname = "%s\\%s_%d_Xhat.pkl" % (dirbase,sess['DateFolder'],sess['SessionNumber'])
                     print(fname)
-                    # if os.path.isfile(fname):
-                    #     print("LOOCV results exist, overwriting")
-                    #     with open(fname,"rb") as f:
-                    #         d = pickle.load(f)
-                    #         Xhat=d['Xhat']
+                    if os.path.isfile(fname):
+                        print("LOOCV results exist, overwriting")
+                        with open(fname,"rb") as f:
+                            d = pickle.load(f)
+                            Xhat=d['Xhat']
                     #
-                    # else:
-                    #     print("LOOCV results don't exist")
-                    Xhat = single_session(sess)
-                    with open(fname,"wb") as f:
-                        pickle.dump({'Xhat':Xhat},f)
+                    else:
+                        print("LOOCV results don't exist")
+                        Xhat = single_session(sess)
+                        with open(fname,"wb") as f:
+                            pickle.dump({'Xhat':Xhat},f)
 
 
                     VRDat,C, S, A = pp.load_scan_sess(sess)
@@ -233,6 +235,11 @@ if __name__ == '__main__':
                         plot_decoding(data_dict,rzone0=[350,415],rzone1=[250,315],save=True,
                                            prefix=prefix)
                     else:
-                        plot_decoding(data_dict,save=True, prefix=prefix)
+                        plot_decoding(data_dict,save=True, prefix=prefix,plot_rzone=False)
+
+                    # confmat,f_cmat,ax_cmat = confusion_matrix(data_dict,save=False,check_pcnt = True,
+                    #                     check_omissions = False,plot=True)
+                    # f.savefig(os.path.join(prefix,"trial%d_morph%2f_reward%d.pdf" % (t,morphs[t],int(rewards[t]))),format='pdf')
+
                 except:
                     print(sess)
