@@ -161,6 +161,20 @@ def make_pos_bin_trial_matrices(arr, pos, tstart, tstop,method = 'mean',bin_size
     else:
         return np.squeeze(trial_mat), np.squeeze(occ_mat), bin_edges, bin_centers
 
+def morph_pos_rate_map(trial_mat, effMorph):
+    if len(trial_mat.shape)==2:
+        trial_mat=trial_mat[:,:,np.newaxis]
+    effMorph = (effMorph-np.amin(effMorph))/(np.amax(effMorph)-np.amin(effMorph)+.01)+.001
+    morph_edges = np.linspace(.1,1,num=10)
+    ratemap = np.zeros([10,trial_mat.shape[1],trial_mat.shape[2]])
+    ratemap[:]=np.nan
+
+    morph_dig = np.digitize(effMorph,morph_edges)
+    for ind in np.unique(morph_dig).tolist():
+        ratemap[ind,:,:] = np.nanmean(trial_mat[morph_dig==ind,:,:],axis=0)
+    return np.squeeze(ratemap)
+
+
 def make_time_bin_trial_matrices(C,tstarts,tstops):
 
     # find longest trial

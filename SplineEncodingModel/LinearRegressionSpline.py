@@ -1,7 +1,7 @@
 import numpy as np
 import scipy as sp
 import sklearn as sk
-from sklearn.linear_model import RidgeCV
+from sklearn.linear_model import RidgeCV, LinearRegression
 import os
 
 os.sys.path.append("C:\\Users\\mplitt\\MightyMorphingPhotonRangers")
@@ -83,7 +83,7 @@ class EncodingModel:
         alpha = (v-pre_ctrl_pt)/(post_ctrl_pt-pre_ctrl_pt)
         u = np.array([alpha**3, alpha**2, alpha, 1]).reshape([1,-1])
         # p =
-        #print(ctrl_i,np.matmul(u,self.S).shape)
+        # print(v,ctrl_i,np.matmul(u,self.S).shape)
         x[ctrl_i-1:ctrl_i+3] = np.matmul(u,self.S)
         return x
 
@@ -93,14 +93,16 @@ class EncodingModel:
 
         X = np.zeros([spl_basis.shape[0],spl_basis.shape[1]+1])
         X[:,:-1]=spl_basis
-        X[:,-1]=1.
+        X[:,-1]=.5
 
         return X
 
     def fit_linear(self,X,y):
         if self.ops['RidgeCV']:
-            mdl = RidgeCV(fit_intercept=False)
+            # mdl = LinearRegression(fit_intercept=False)
+            mdl = RidgeCV(fit_intercept=True)
             mdl.fit(X,y)
+
         else:
             pass
 
@@ -133,7 +135,7 @@ def _grad_poisson(coefs,X,y,alpha):
     u = np.matmul(X,coefs)
     rate = np.exp(u)
 
-    return np.matmul(X.T,rate-y) + alpha*np.append(coefs[:-1],0)
+    return np.matmul(X.T,rate-y) + alpha*coefs
 
 def _hessian_poisson(coefs,X,y,alpha):
     u = np.matmul(X,coefs)
