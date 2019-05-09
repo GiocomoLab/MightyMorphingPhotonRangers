@@ -30,7 +30,13 @@ if __name__ == '__main__':
         for i in range(df_sess.shape[0]):
             #try:
                 sess = df_sess.iloc[i]
-                prefix = os.path.join("E:\\", "%s_%s_%d" % (sess.MouseName,sess.DateFolder,sess.SessionNumber))
+                # prefix = os.path.join("E:\\", "%s_%s_%d" % (sess.MouseName,sess.DateFolder,sess.SessionNumber))
+                prefix = os.path.join("G:\\My Drive\\NonParametricDecoding\\data", "%s_%s_%d" % (sess.MouseName,sess.DateFolder,sess.SessionNumber))
+                try:
+                    os.makedirs(prefix)
+                except:
+                    pass
+
                 gdrive = os.path.join("G:\\My Drive\\NonParametricDecoding\\data", "%s_%s_%d" % (sess.MouseName,sess.DateFolder,sess.SessionNumber))
                 ss = bd.single_session(sess,prefix=prefix)
                 ss.prefix = "E:\\"
@@ -40,11 +46,11 @@ if __name__ == '__main__':
                 decode_dict = ss.run_decoding(L=L)
                 del L
                 del decode_dict
-                os.system("move %s/ctxt_LLR.npz '%s/ctxt_LLR.npz'" % (prefix,gdrive))
-                os.system("move %s/pop_post_i.dat '%s/pop_post_i.dat'" % (prefix,gdrive))
-                os.system("move %s/pop_post_ix.dat '%s/pop_post_ix.dat'" % (prefix,gdrive))
-                os.system("move %s/post_i.dat '%s/post_i.dat'" % (prefix,gdrive))
-                os.system("del %s" % (prefix))
+#                os.system("move %s/ctxt_LLR.npz '%s/ctxt_LLR.npz'" % (prefix,gdrive))
+#                os.system("move %s/pop_post_i.dat '%s/pop_post_i.dat'" % (prefix,gdrive))
+#                os.system("move %s/pop_post_ix.dat '%s/pop_post_ix.dat'" % (prefix,gdrive))
+#                os.system("move %s/post_i.dat '%s/post_i.dat'" % (prefix,gdrive))
+#                os.system("del %s" % (prefix))
                 os.system("del E:\\L.dat")
 
                 #shutil.move(prefix,gdrive)
