@@ -16,6 +16,7 @@ from glob import glob
 import os.path
 from astropy.convolution import convolve, Gaussian1DKernel
 import h5py
+import utilities as u
 
 def loadmat_sbx(filename):
     '''
@@ -104,6 +105,7 @@ def load_scan_sess(sess,analysis='s2p',plane=0,fneu_coeff=.7):
         S = np.load(os.path.join(folder,'spks.npy'))
         C = F-fneu_coeff*Fneu
         C=C[iscell[:,0]>0,:].T
+        C = u.df(C)
         S=S[iscell[:,0 ]>0,:].T
         frame_diff = VRDat.shape[0]-C.shape[0]
         print('frame diff',frame_diff)
