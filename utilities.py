@@ -176,13 +176,18 @@ def morph_pos_rate_map(trial_mat, effMorph):
 
 
 def make_time_bin_trial_matrices(C,tstarts,tstops):
-
+    if tstarts.shape[0]>1000: # if binary, leaving in for backwards compatibility
+        tstart_inds, tstop_inds = np.where(tstarts==1)[0],np.where(tstops==1)[0]
+        ntrials = np.sum(tstarts)
+    else:
+        tstart_inds, tstop_inds = tstarts, tstops
+        ntrials = tstarts.shape[0]
     # find longest trial
     N = (tstops-tstarts).max()
     if len(C.shape)>1:
         T = np.zeros([tstarts.shape[0],N,C.shape[1]])
     else:
-        T = np.zeros([tstarts.shape[0],N,1])
+        T = np.zeros([int(tstarts.shape[0]),int(N),1])
         C = C[:,np.newaxis]
     T[:]=np.nan
 

@@ -85,7 +85,19 @@ def single_session(sess,ops = {},plot=True):
 
     else:
         S = morph_simmat(C_morph_dict, corr=ops['corr'])
+
+
         U= morph_mean_simmat(S,m)
+        # if m==5:
+        #     for i,morph in enumerate([0,.25,.5,.75,1.]):
+        #         if i in (0,1):
+        #             FR = C_morph_dict[morph]
+        #             FR0 = np.nanmean(FR[0::2,:,:],axis=0)
+        #             FR1 = np.nanmean(FR[1::2,:,:],axis=0)
+        #             FR0,FR1 = sp.stats.zscore(FR0.ravel()),sp.stats.zscore(FR1.ravel())
+        #             U[i,i] = 1/FR0.shape[0]*np.dot(FR0,FR1)
+        #
+        #         # U[i,i] = (1/FR0.shape[0]*np.matmul(FR0.T,FR1)).mean()
 
         if plot:
             f_S,ax_S = plot_simmat(S,m)
@@ -211,12 +223,12 @@ def _sort_simmat(A,sort):
     return A[:,sort]
 
 
-def trial_simmat(S_tm,m,sig = 3):
+def trial_simmat(S_tm):
 
     # smooth single cell firing rate
     S_mat = S_tm.reshape([S_tm.shape[0],-1])
     # normalize by L2 norm
-    S_mat/=np.linalg.norm(S_mat,ord=2,axis=1)
+    S_mat/=np.linalg.norm(S_mat,ord=2,axis=1)[:,np.newaxis]
 
     return np.matmul(S_mat,S_mat.T)
 
@@ -258,10 +270,15 @@ def morph_mean_simmat(SM,m):
 
 
 def morph_simmat(C_morph_dict, corr = False ):
+    C_dict0,C_dict1 = {},{}
+
+
     X = morph_by_cell_mat(C_morph_dict)
+
     if corr: # zscore to get correlation
         X=sp.stats.zscore(X,axis=0)
         return 1/X.shape[0]*np.matmul(X.T,X)
+
     else: # scale by l2 norm to give cosine similarity
         X/=np.power(X,2).sum(axis=0)[np.newaxis,:]
         return np.matmul(X.T,X)

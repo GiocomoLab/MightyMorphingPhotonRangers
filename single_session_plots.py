@@ -167,8 +167,15 @@ def single_session_figs(sess,dir = "G:\\My Drive\\Figures\\TwoTower\\SingleSessi
 
 
         # spectral embedding of single trial similarity matrix
-        lem = sk.manifold.SpectralEmbedding(affinity='precomputed',n_components=3)
-        X = lem.fit_transform(S_t_rmat)
+        # lem = sk.decomposition.PCA(n_components=3)
+        # lem = sk.manifold.SpectralEmbedding(affinity='precomputed',n_components=3)
+        # X = lem.fit_transform(S_t_rmat)
+
+        [w,V]=np.linalg.eig(S_t_rmat)
+        order = np.argsort(w)[::-1]
+        w = w[order]
+        V=V[:,order]
+        X =  np.matmul(S_t_rmat,V[:,:3])
         f_embed = plt.figure(figsize=[20,20])
         ax_embed3d = f_embed.add_subplot(221, projection='3d')
         ax_embed3d.scatter(X[:,0],X[:,1],X[:,2],c=effMorph,cmap='cool')

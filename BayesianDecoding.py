@@ -18,7 +18,7 @@ from scipy.ndimage import gaussian_filter, gaussian_filter1d
 class empirical_density:
     '''calculate empirical joint density'''
     def __init__(self,x,y,xbins = np.arange(0,451,5),ybins=np.arange(-2,15,.5),sigma=(2,2)):
-        ybins = np.append(ybins,25)
+        # ybins = np.append(ybins,25)
         H,xedge,yedge = np.histogram2d(x,y,bins=[xbins,ybins])
         H_smooth = gaussian_filter(H,sigma,mode='nearest')
 

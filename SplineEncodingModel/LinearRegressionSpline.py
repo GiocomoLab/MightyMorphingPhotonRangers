@@ -57,7 +57,7 @@ class NBDecodingModel:
         # self.p_c = p_c.reshape([1,50])
 
 
-    def poisson_predict_rate(self,cells = None):
+    def poisson_predict_rate_decodingDM(self,cells = None):
         if cells is None:
             cells = np.ones([self.n_cells,])
             cells = cells>0
@@ -69,35 +69,29 @@ class NBDecodingModel:
 
         self.Lam=Lam
 
+    def poisson_predict_rate(self,pos,morph):
+        dummyEM = EncodingModel(ops=self.ops)
+        DM = dummyEM.make_design_matrix(pos,morph)
+        rhat = np.zeros([pos.shape[0],self.n_cells])
+        for cell,model in self._cells.items():
+            rhat[:,cell]=model.predict_poisson(DM).ravel()
+        return rhat
+
     def poisson_predict_likelihood_1timepoint(self,S,cells=None):
         if cells is None:
             cells = np.ones([self.n_cells,])
             cells = cells>0
-        # try:
-        #     L_allcells= np.memmap(os.path.join("E:\\L_allcells.dat"),dtype='float32',
-        #         mode='r+',shape=(self.Lam.shape[0],self.n_cells,s.shape[0]))
-        # except:
-        #     L_allcells= np.memmap(os.path.join("E:\\L_allcells.dat"),dtype='float32',
-        #         mode='w+',shape=(self.Lam.shape[0],self.n_cells,S.shape[0]))
-        # L_allcells = np.zeros([self.Lam.shape[0],self.n_cells])
+
 
         s_v = np.matmul(np.ones([self.Lam.shape[0],1]),S.reshape([1,-1]))
+        #print(self.Lam.ravel())
         L_allcells = _gamma_pdf(s_v.ravel(),self.Lam.ravel()).reshape(self.Lam.shape)
+        if (np.isinf(L_allcells).sum()>0):
+            print('inf',np.isinf(L_allcells).sum())
+        if (np.isnan(L_allcells).sum()>0):
+            print('nan',np.isnan(L_allcells).sum())
+        L_allcells /= L_allcells.sum(axis=0).reshape([1,-1])
 
-
-        # lam_v = np.matmul(lam.reshape([-1,1]),np.ones([1,s.shape[0]]))
-        #
-        # for cell in self._cells.keys():
-        #     if cells[cell]:
-        #         s = S[cell]
-        #         lam = self.Lam[:,cell]
-        #         s_v = np.matmul(np.ones([lam.shape[0],1]),s.reshape([1,-1]))
-        #         lam_v = np.matmul(lam.reshape([-1,1]),np.ones([1,s.shape[0]]))
-        #         # s_v,lam_v = np.meshgrid(s,lam)
-        #
-        #         # L_allcells[:,cell,:] = _gamma_pdf(s_v.ravel(),lam_v.ravel()).reshape(s_v.shape)
-        #         L_allcells[:,cell,:] = _gamma_pdf(s_v.ravel(),lam_v.ravel()).reshape(s_v.shape)
-        #
         return L_allcells
 
     def poisson_decode(self,S,cells = None):
@@ -105,14 +99,14 @@ class NBDecodingModel:
 
         for t in range(S.shape[0]):
 
+            if t%1000==0:
+                print("\t timepoint",t)
+
             L_allcells = self.poisson_predict_likelihood_1timepoint(S[t,:])+1E-5
-            a = np.isnan(L_allcells)
-            if a.sum()>0:
-                print(a.sum())
-            L = np.log(L_allcells).sum(axis=1).reshape(self._C.shape) + np.log(self.p_x) + np.log(self.p_c)
+            L = np.log(L_allcells).sum(axis=1).reshape(self._C.shape) #+ np.log(self.p_x) + np.log(self.p_c)
 
+            # log sum exp
             A = np.amax(L)
-
             log_denom = A + np.log(np.exp(L.ravel()-A).sum())
 
             P_XC[t,:,:] = np.exp(L-log_denom)
@@ -127,7 +121,9 @@ class NBDecodingModel:
 
 def _gamma_pdf(y,lam):
     y = np.maximum(y,1E-3)
-    return np.power(y,lam-1)*np.exp(-y)/sp.special.gamma(lam)
+    p = np.power(y,lam-1)*np.exp(-y)/sp.special.gamma(lam)
+    p[np.isnan(p)]=1
+    return p #np.power(y,lam-1)*np.exp(-y)/sp.special.gamma(lam)
 
 class EncodingModel:
     def __init__(self,ops={}):
@@ -138,6 +134,7 @@ class EncodingModel:
                     [2*s, s-3, 3-2*s, -s],
                     [-s, 0, s, 0,],
                     [0, 1, 0, 0]])
+        self.dt = .06467913
 
         #self.coefs = np.zeros([self._n_coefs,])
 
@@ -145,6 +142,7 @@ class EncodingModel:
 
         ops_out={'n_ctrl_pts_pos':3,
         'n_ctrl_pts_morph':3,
+        'n_ctrl_pts_hist': 3,
         'max_pos':450,
         'RidgeCV':True,
         's':.5}
@@ -173,6 +171,14 @@ class EncodingModel:
         self.morph_ctrl_pts[0]=morph_ctrl_pts[0]-dmorph
         self.morph_ctrl_pts[1:-1]=morph_ctrl_pts
         self.morph_ctrl_pts[-1]=morph_ctrl_pts[-1]+dmorph
+
+
+        self.hist_ctrl_pts = np.zeros([self.ops['n_ctrl_pts_hist']+2,])
+        hist_ctrl_pts = np.linspace(-50,0,num=self.ops['n_ctrl_pts_hist'])
+        dhist = hist_ctrl_pts[1] - hist_ctrl_pts[0]
+        self.hist_ctrl_pts[0] = hist_ctrl_pts[0]-dhist
+        self.hist_ctrl_pts[1:-1]=hist_ctrl_pts
+        self.hist_ctrl_pts[-1]=hist_ctrl_pts[-1]+dhist
 
 
     def pos_morph_spline(self,pos,morph):
@@ -209,8 +215,16 @@ class EncodingModel:
         return x
 
 
+    # def spike_history_spline(self,y):
+    #
+    #     splbasis = np.zeros([y.shape[0],self.ops['n_ctrl_pts_hist']+2])
+    #     for i in range(y.shape[0]):
+
+
     def make_design_matrix(self,pos,morph):
         spl_basis = self.pos_morph_spline(pos,morph)
+
+
         return spl_basis
         # X = np.zeros([spl_basis.shape[0],spl_basis.shape[1]+1])
         # X[:,:-1]=spl_basis
@@ -230,9 +244,12 @@ class EncodingModel:
         self.coef_ = mdl.coef_
         # self.alpha_ = mdl.alpha_
 
-    def predict_linear(self,X):
+    def predict_linear(self,X,spike_history=False):
         #print(self.coef_.shape,X.shape)
-        return np.matmul(X,self.coef_.T)
+        if spike_history:
+            pass
+        else:
+            return np.matmul(X,self.coef_.T)
 
     def fit_poisson(self,X,y,alpha=.001):
         coefs0 = np.random.rand(X.shape[1],1)
@@ -241,8 +258,11 @@ class EncodingModel:
 
         self.alpha_=alpha
 
-    def predict_poisson(self,X):
-        return np.exp(np.matmul(X,self.coef_))
+    def predict_poisson(self,X,spike_history=False):
+        if spike_history:
+            pass
+        else:
+            return np.exp(np.matmul(X,self.coef_))
 
     def prob_poisson(self,y,X):
         '''assume y is a scalar'''
