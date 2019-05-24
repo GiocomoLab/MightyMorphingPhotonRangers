@@ -42,6 +42,9 @@ def single_session(sess,smooth=True):
     Xhat[~train_mask]=lr.predict_proba(S[~train_mask,:])
     return Xhat
 
+def single_session_multicontext(sess,smooth=True):
+    pass
+
 def plot_decoding(data_dict,rzone0=[250,315],rzone1=[350,415],save=False,
                 prefix=None,plot_rzone=False):
     rzone0 = [i/20 for i in rzone0]
@@ -169,115 +172,72 @@ def confusion_matrix(data_dict,save=False,check_pcnt = True,
         return c_all, (f,ax)
 
 
-def plot_llr(LLR,morph_binned,VRDat,save=False):
+def plot_llr(llr_pos,effMorph,save=False,centers = None,nbins=5):
+
+    if centers is None:
+        centers = np.linspace(0,450,num=llr_pos.shape[1])
+
+    morph_edges = np.linspace(0,1,num=nbins+1)
+    dm = morph_edges[1]-morph_edges[0]
+    morph_centers = morph_edges[1:]-dm
+    morph_dig = np.digitize(effMorph,morph_edges[1:],right=True)
+    morph_binned = np.zeros(effMorph.shape)
+    for i,c in enumerate(morph_centers.tolist()):
+        morph_binned[morph_dig==i]=c
 
 
-    keys = np.unique(morph_binned)
-    nm = keys.shape[0]
-    # pos binned data
-    llr_pos,occ,edges,centers = u.make_pos_bin_trial_matrices(LLR,VRDat.pos._values,VRDat['tstart']._values,VRDat['teleport']._values)
-
-    # by morph means
-    d_pos = u.trial_type_dict(llr_pos,morph_binned)
-
-
-    # by morph means
-    # d_time = u.trial_type_dict(llr_time,morph_binned)
-
-    mu_pos = np.zeros([keys.shape[0],llr_pos.shape[1]])
-    sem_pos = np.zeros([keys.shape[0],llr_pos.shape[1]])
-
-    for j,k in enumerate(keys):
-        mu_pos[j,:] = np.nanmean(d_pos[k],axis=0)
-        sem_pos[j,:] = np.nanstd(d_pos[k],axis=0)
+    mu_pos = np.zeros([nbins,llr_pos.shape[1]])
+    sem_pos = np.zeros([nbins,llr_pos.shape[1]])
+    for b in range(nbins):
+        mu_pos[b,:] = np.nanmean(llr_pos[morph_dig==b,:],axis=0)
+        sem_pos[b,:]=np.nanstd(llr_pos[morph_dig==b,:],axis=0)
 
 
     # actually plot stuff
     f_mp,ax_mp = plt.subplots()
-
-    for z in range(nm):
-        # for zz in range(5):
-            ax_mp.plot(centers,mu_pos[z,:],color=plt.cm.cool(keys[z]))
-            # ax_mt.plot(time,mu_time[z,:],color=plt.cm.cool(keys[z]))
-
-            # ax_mp.fill_between(centers,mu_pos[z,:]+sem_pos[z,:],y2=mu_pos[z,:]-sem_pos[z,:],
-            #                 color=plt.cm.cool(keys[z]),alpha=.4)
-            # # ax_mt.fill_between(time,mu_time[z,:]+sem_time[z,:],y2=mu_time[z,:]-sem_time[z,:],
-            #                 color=plt.cm.cool(keys[z]),alpha=.4)
-
+    for b in range(nbins):
+        ax_mp.plot(centers,mu_pos[b,:],color=plt.cm.cool(morph_centers[b]))
     ax_mp.set_xlabel('position')
     ax_mp.set_ylabel('LLR')
-    # ax_mt.set_xlabel('time')
-    # ax_mt.set_ylabel('LLR')
-
-    # ff_pos,aax_pos = plt.subplots()
-    f_pos,ax_pos = plt.subplots(1,nm,figsize=[20,5])
-
-    for i,(k,v) in enumerate(d_pos.items()):
-        if k not in ['labels','all','indices']:
-            for trial in range(v.shape[0]):
-                _single_line_llr_multiax(centers,v[trial,:],k,i-3,ax_pos)
-
-    # for i,(start,stop,m)  in enumerate(zip(tstarts.tolist(),teleports.tolist(),morph_binned.tolist())):
-    # #     # print(start,stop,m,r,wj,bj)
-    #
-    #     _single_line_llr_multiax(self.pos[start:stop],LLR[start:stop],m,ax_pos)
-    # #     self._single_line_llr_multiax(np.arange(stop-start)*1./15.46,LLR[start:stop],m,r,ax_time,xlim=[0,250])
 
 
+    f_pos,ax_pos = plt.subplots(1,nbins,figsize=[20,5])
+    for b in range(nbins):
+        ax_pos[b].fill_between(centers,mu_pos[0,:]+sem_pos[0,:],y2=mu_pos[0,:]-sem_pos[0,:],
+                    color=plt.cm.cool(0.),alpha=.4)
+        ax_pos[b].fill_between(centers,mu_pos[-1,:]+sem_pos[-1,:],y2=mu_pos[-1,:]-sem_pos[-1,:],
+                    color=plt.cm.cool(1.),alpha=.4)
+
+        _llr = llr_pos[morph_dig==b,:]
+        _em = effMorph[morph_dig==b]
+        for row in range(_llr.shape[0]):
+            ax_pos[b].plot(centers,_llr[row,:],color=plt.cm.cool(_em[row]),linewidth=1)
     ax_pos[0].set_xlabel('position')
-    # aax_pos.set_xlabel('position')
-    # ax_time[0].set_xlabel('time')
-    # aax_time.set_xlabel('time')
-    for z in [0, -1]:
-        for a in range(nm):
 
-            ax_pos[a].fill_between(centers,mu_pos[z,:]+sem_pos[z,:],y2=mu_pos[z,:]-sem_pos[z,:],
-                        color=plt.cm.cool(keys[z]),alpha=.4)
-            # ax_time[a].fill_between(time,mu_time[z,:]+sem_time[z,:],y2=mu_time[z,:]-sem_time[z,:],
-                        # color=plt.cm.cool(keys[z]),alpha=.4)
 
-    # if save:
-    #     try:
-    #         os.makedirs(self.prefix)
-    #     except:
-    #         pass
-    #     f_mp.savefig(os.path.join(self.prefix,"LLR_position.png"),format="png")
-    #     f_mt.savefig(os.path.join(self.prefix,"LLR_time.png"),format="png")
-    #     f_pos.savefig(os.path.join(self.prefix,"LLR_pos_st.png"),format="png")
-    #     f_time.savefig(os.path.join(self.prefix,"LLR_time_st.png"),format="png")
-    #
-    # return (f_mp,ax_mp),(f_mt,ax_mt),(f_pos,ax_pos),(f_time,ax_time) #, (ff_pos,aax_pos), (f_time,ax_time), (ff_time,aax_time)
-    # # edit axes
+    msort = np.argsort(effMorph)
+    f_mat = plt.figure(figsize=[10,10])
+    gs = gridspec.GridSpec(1,6)
+    ax_mat = f_mat.add_subplot(gs[:,:5])
+    ax_mat.imshow(-llr_pos[msort,:],cmap='cool',aspect='auto',vmin=-100,vmax=100)
+    ax_trial = f_mat.add_subplot(gs[:,-1])
+    ax_trial.scatter(effMorph[msort][::-1],np.arange(effMorph.shape[0]),c=effMorph[msort][::-1],cmap='cool')
+    ax_trial.set_ylim([0,effMorph.shape[0]])
 
 
 
-
-def _single_line_llr_multiax(x,y,m,i,ax,lw=.5):
-    ax[i].plot(x,y,color=plt.cm.cool(m),linewidth=lw)
-    # if m == 0:
-    #     ax[0].plot(x,y,color=plt.cm.cool(m),linewidth=lw)
-    # elif m == .25:
-    #     ax[1].plot(x,y,color=plt.cm.cool(m),linewidth=lw)
-    # elif m  == .5 :
-    #     ax[2].plot(x,y,color=plt.cm.cool(m),linewidth=lw)
-    # elif m == .75:
-    #     ax[3].plot(x,y,color=plt.cm.cool(m),linewidth=lw)
-    # elif m == 1.:
-    #     ax[-1].plot(x,y,color=plt.cm.cool(m),linewidth=lw)
+    llr_avg = np.nanmean(llr_pos,axis=1)
+    f_trial_avg ,ax_trial_avg = plt.subplots()
+    ax_trial_avg.scatter(np.arange(effMorph.shape[0]),llr_avg[msort],c=effMorph[msort],cmap='cool')
+    return (f_mp, ax_mp), (f_pos,ax_pos), (f_mat,ax_mat,ax_trial), (f_trial_avg,ax_trial_avg)
 
 
 ######################################
 
 if __name__ == '__main__':
 
-    # mice = ['4139219.2','4139219.3','4139224.2','4139224.3','4139224.5',
-    # '4139251.1','4139260.1','4139260.2','4139261.2','4139265.3','4139265.4',
-    # '4139265.5','4139266.3']
-    # mice = ['4139260.1','4139260.2','4139261.2','4139265.3','4139265.4',
-    # '4139265.5','4139266.3']
-    mice = ['4222153.1', '4222153.2', '4222153.2', '4222154.1','4139265.3','4139265.4',
-     '4139265.5']
+
+    mice = ['4139265.3','4139265.4','4139265.5','4222153.1', '4222153.2', '4222154.1']
 
     df = pp.load_session_db()
     df = df[df['RewardCount']>30]
@@ -304,7 +264,7 @@ if __name__ == '__main__':
                     fname = "%s\\%s_%d_Xhat.pkl" % (dirbase,sess['DateFolder'],sess['SessionNumber'])
                     print(fname)
                     if os.path.isfile(fname):
-                        print("LOOCV results exist, overwriting")
+                        print("LOOCV results exist")
                         with open(fname,"rb") as f:
                             d = pickle.load(f)
                             Xhat=d['Xhat']
@@ -319,6 +279,19 @@ if __name__ == '__main__':
                     VRDat,C, S, A = pp.load_scan_sess(sess)
                     trial_info, tstart_inds, teleport_inds = u.by_trial_info(VRDat)
                     S_trial_mat, occ_trial_mat, edges,centers = u.make_pos_bin_trial_matrices(S,VRDat['pos']._values,VRDat['tstart']._values,VRDat['teleport']._values)
+                    effMorph = trial_info['morphs']+trial_info['bckgndJitter']+trial_info['towerJitter']
+                    effMorph = (effMorph+.2)/1.4
+
+
+                    #
+                    half = int(Xhat.shape[1]/2)
+                    num,den = Xhat[:,:half].sum(axis=1),Xhat[:,half:].sum(axis=1)
+                    llr = np.log(num)-np.log(den)
+                    llr_trial_mat = u.make_pos_bin_trial_matrices(llr,VRDat.pos._values,VRDat['tstart']._values,VRDat['teleport']._values,mat_only=True,bin_size=10)
+                    #
+
+
+
                     prefix = os.path.join(dirbase,"%s_%d" % (sess['DateFolder'],sess['SessionNumber']))
                     try:
                         os.makedirs(prefix)
@@ -331,12 +304,19 @@ if __name__ == '__main__':
                             'Xhat':Xhat,'lick pos':u.lick_positions(VRDat.lick._values,np.digitize(VRDat.pos._values,bin_edges)),
                             'morphs':trial_info['morphs'],'rewards':trial_info['rewards']}
 
+
+
                     if mouse in {'4139251.1','4139260.1','4139261.2'}:
                         plot_decoding(data_dict,rzone0=[350,415],rzone1=[250,315],save=True,
                                            prefix=prefix)
                     else:
-                        plot_decoding(data_dict,save=True, prefix=prefix,plot_rzone=False)
+                        # plot_decoding(data_dict,save=True, prefix=prefix,plot_rzone=False)
+                        (f_mp,ax_mp), (f_pos,ax_pos), (f_mat,ax_mat,ax_trial), (f_trial_avg,ax_trial_avg) = plot_llr(llr_trial_mat,effMorph)
 
+                        f_mp.savefig(os.path.join(dirbase,"%s_%d_llr_mean.pdf" % (sess['DateFolder'],sess['SessionNumber'])),format='pdf')
+                        f_pos.savefig(os.path.join(dirbase,"%s_%d_llr_singletrials.pdf" % (sess['DateFolder'],sess['SessionNumber'])),format='pdf')
+                        f_mat.savefig(os.path.join(dirbase,"%s_%d_llr_mat.pdf" % (sess['DateFolder'],sess['SessionNumber'])),format='pdf')
+                        f_trial_avg.savefig(os.path.join(dirbase,"%s_%d_llr_trialavg.pdf" % (sess['DateFolder'],sess['SessionNumber'])),format='pdf')
                     # confmat,f_cmat,ax_cmat = confusion_matrix(data_dict,save=False,check_pcnt = True,
                     #                     check_omissions = False,plot=True)
                     # f.savefig(os.path.join(prefix,"trial%d_morph%2f_reward%d.pdf" % (t,morphs[t],int(rewards[t]))),format='pdf')
