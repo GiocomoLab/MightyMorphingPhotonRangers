@@ -113,7 +113,7 @@ class NBDecodingModel:
 
         return P_XC
 
-    def single_cell_decoding(self,p_xcy):
+    def single_cell_decoding(self,p_xcgiy):
         p_xc = p_xcy.reshape([self._X.shape])*self.p_x*self.p_c
         p_xc/=p_xc.ravel().sum()
         return p_xc.sum(axis=0), p_xc.sum(axis=0)
