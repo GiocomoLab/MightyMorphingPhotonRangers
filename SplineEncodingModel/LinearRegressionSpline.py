@@ -19,6 +19,7 @@ class NBDecodingModel:
         self._set_ops(ops)
         self._cells = {}
         self.Lam=None
+        # self.gamma_const_func = _gamma_const()
 
 
         dummyEM = EncodingModel(ops = ops)
@@ -85,7 +86,8 @@ class NBDecodingModel:
 
         s_v = np.matmul(np.ones([self.Lam.shape[0],1]),S.reshape([1,-1]))
         #print(self.Lam.ravel())
-        L_allcells = _gamma_pdf_unnorm(s_v.ravel(),self.Lam.ravel()).reshape(self.Lam.shape)
+        # L_allcells = _gamma_pdf_unnorm(s_v.ravel(),self.Lam.ravel()).reshape(self.Lam.shape)
+        L_allcells = _continuous_poisson_pdf(s_v.ravel(),self.Lam.ravel()).reshape(self.Lam.shape)
         if (np.isinf(L_allcells).sum()>0):
             print('inf',np.isinf(L_allcells).sum())
         if (np.isnan(L_allcells).sum()>0):
@@ -119,26 +121,13 @@ class NBDecodingModel:
         return p_xc.sum(axis=0), p_xc.sum(axis=0)
 
 def _continuous_poisson_pdf(y,lam):
-    z = _gamma_pdf_unnorm(y,lam)
-    return z/_gamma_const(lam)
-
-def _gamma_pdf_unnorm(y,lam):
-    # y = np.maximum(y,1E-3)
-    p = np.exp(-lam)*np.power(lam,y)/sp.special.gamma(y+1)
-
-    # p = np.power(y,lam)*np.exp(-y)/sp.special.gamma(lam)
-    # p[np.isnan(p)]=1
-    return p #np.power(y,lam-1)*np.exp(-y)/sp.special.gamma(lam)
-
-def _gamma_const(lam):
-    y = np.linspace(0,50,num=1000)
-    C = np.zeros([y.shape[0],lam.shape[0]])
-    for i,_y in enumerate(y.tolist()):
-        # print(i,C.shape)
-        C[i,:] = _gamma_pdf_unnorm(_y,lam).ravel()
-    C[np.isnan(C)]=0
-    C[np.isinf(C)]=1
-    return C.sum(axis=0).ravel()
+    return  np.exp(-lam)*np.power(lam,y)/sp.special.gamma(y+1)
+#     z = _gamma_pdf_unnorm(y,lam)
+#     return z#/const(np.minimum(np.maximum(lam,1E-10),100))
+#
+# def _gamma_pdf_unnorm(y,lam):
+#     p = np.exp(-lam)*np.power(lam,y)/sp.special.gamma(y+1)
+#     return p
 
 
 class EncodingModel:

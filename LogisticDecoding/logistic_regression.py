@@ -1,4 +1,3 @@
-ls
 import matplotlib.pyplot as plt
 from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
 import numpy as np
@@ -239,7 +238,7 @@ if __name__ == '__main__':
 
 
     # mice = ['4139265.3','4139265.4','4139265.5','4222153.1', '4222153.2', '4222154.1']
-    mice = []
+    mice = ['4139224.3','4139224.5','4139251.1','4139260.1','4139261.2']
     df = pp.load_session_db()
     df = df[df['RewardCount']>30]
     df = df[df['Imaging']==1]
