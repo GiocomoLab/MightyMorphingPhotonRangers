@@ -169,12 +169,12 @@ def plot_likelihood(VRDat, L_XC,savefigs=True,outpath=None):
         LLC_trial[t,:] = np.log(L_XC[start:stop,:,:].sum(axis=1)).mean(axis=0)
 
     f_llc,ax_llc = plt.subplots()
-    ax.imshow(LLC_trial[msort,4:-4],aspect='auto',cmap='cividis')
+    ax_llc.imshow(LLC_trial[msort,4:-4],aspect='auto',cmap='cividis')
 
     # same idea but plot probability and do it as a bunch of line plots with morph indicated by color
     f_pc,ax_pc = plt.subplots()
     for row in range(LLC_trial.shape[0]):
-        ax.plot(np.exp(LLC_trial[row,:]),color=plt.cm.cool(np.float(trial_em[row])), alpha = .3)
+        ax_pc.plot(np.exp(LLC_trial[row,:]),color=plt.cm.cool(np.float(trial_em[row])), alpha = .3)
 
 
     if savefigs:
