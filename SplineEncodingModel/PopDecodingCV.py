@@ -154,7 +154,7 @@ def plot_likelihood(VRDat, L_XC,savefigs=True,outpath=None):
         pos_ax.set_xlim([0,x[-1]])
 
         if savefigs:
-            f_trial.savefig(os.path.join(singletrial_folder,'trial_%i.png'),format='png')
+            f_trial.savefig(os.path.join(singletrial_folder,'trial_%i.png' % j),format='png')
 
 
 

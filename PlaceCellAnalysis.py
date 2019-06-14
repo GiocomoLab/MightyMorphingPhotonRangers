@@ -311,17 +311,29 @@ def place_cells_calc(C, position, trial_info, tstart_inds,
             masks[m]=np.multiply(p_e>pthr,p_o>pthr)
 
         elif method == 'bootstrap':
-            n_boots=25
+            n_boots=30
+            # drop trial with highest firing rate
+            tmat = C_morph_dict[m]
+            # maxtrial = np.argmax(tmat.sum(axis=1),axis=0)
+            # print(maxtrial.shape)
+            # mask = np.ones([tmat.shape[0],])
+            # mask[maxtrial]=0
+            # mask = mask>0
+            # tmat = tmat[mask,:,:]
+            omat = occ_morph_dict[m]#[mask,:,:]
+
             SI_bs = np.zeros([n_boots,C.shape[1]])
             print("start bootstrap")
             for b in range(n_boots):
+
                 # pick a random subset of trials
-                ntrials = C_morph_dict[m].shape[0]
-                bs_pcnt = .7 # proportion of trials to keep
+                ntrials = tmat.shape[0] #C_morph_dict[m].shape[0]
+                bs_pcnt = .67 # proportion of trials to keep
                 bs_thr = int(bs_pcnt*ntrials) # number of trials to keep
                 bs_inds = np.random.permutation(ntrials)[:bs_thr]
-                FR_bs = np.nanmean(C_morph_dict[m][bs_inds,:,:],axis=0)
-                occ_bs = occ_morph_dict[m][bs_inds,:].sum(axis=0)
+                FR_bs = np.nanmean(tmat[bs_inds,:,:],axis=0)
+                    #np.nanmean(C_morph_dict[m][bs_inds,:,:],axis=0)
+                occ_bs = omat[bs_inds,:].sum(axis=0)#occ_morph_dict[m][bs_inds,:].sum(axis=0)
                 occ_bs/=occ_bs.sum()
                 SI_bs[b,:] = spatial_info(FR_bs,occ_bs)
             print("end bootstrap")
