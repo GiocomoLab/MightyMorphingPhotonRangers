@@ -79,19 +79,19 @@ def single_session_figs(sess,dir = "G:\\My Drive\\Figures\\TwoTower\\SingleSessi
 
 
         # plot behavior
-        if sess['Track'] in ('TwoTower_noTimeout','TwoTower_Timeout','Reversal','Reversal_noTimeout'):
+        if sess['Track'] in ('TwoTower_noTimeout','TwoTower_Timeout','Reversal','Reversal_noTimeout','FreqMorph_Decision','FreqMorph_Timeout'):
             # use existing plotting functions
 
 
 
-            if sess['Track'] in ('TwoTower_noTimeout','TwoTower_Timeout'):
+            if sess['Track'] in ('TwoTower_noTimeout','TwoTower_Timeout','FreqMorph_Timeout','FreqMorph_Decision'):
                 f_lick, (ax_lick, meanlr_ax, lickrat_ax) = b.lick_plot_task(lick_morph_dict,edges,max_pos=max_pos,smooth=False,
                                                 rzone0=(250.,315),rzone1=(350,415))
             else:
                 f_lick, (ax_lick, meanlr_ax, lickrat_ax) = b.lick_plot_task(lick_morph_dict,edges,max_pos=max_pos,smooth=False,
                                                 rzone1=(350.,415),rzone0=(250,315))
 
-            if sess['Track'] in ('TwoTower_noTimeout','TwoTower_Timeout'):
+            if sess['Track'] in ('TwoTower_noTimeout','TwoTower_Timeout','FreqMorph_Timeout','FreqMorph_Decision'):
                 f_speed,ax_speed = b.plot_speed_task(centers,speed_morph_dict,trial_info['morphs'],
                                                         rzone0=(250.,315),rzone1=(350,415))
             else:
@@ -159,7 +159,10 @@ def single_session_figs(sess,dir = "G:\\My Drive\\Figures\\TwoTower\\SingleSessi
         # trial by trial similarity matrix
         S_trial_mat[np.isnan(S_trial_mat)]=0
         S_trial_mat = sp.ndimage.filters.gaussian_filter1d(S_trial_mat,1,axis=1)
-        S_tmat = np.reshape(S_trial_mat,[S_trial_mat.shape[0],-1])
+        if sess['Track'] in ('TwoTower_noTimeout','TwoTower_Timeout','FreqMorph_Timeout','FreqMorph_Decision'):
+            S_tmat = np.reshape(S_trial_mat[:,:20,:],[S_trial_mat.shape[0],-1])
+        else:
+            S_tmat = np.reshape(S_trial_mat,[S_trial_mat.shape[0],-1])
         S_tmat = S_tmat/np.linalg.norm(S_tmat,ord=2,axis=-1)[:,np.newaxis]
         S_t_rmat = np.matmul(S_tmat,S_tmat.T)
 
@@ -167,7 +170,6 @@ def single_session_figs(sess,dir = "G:\\My Drive\\Figures\\TwoTower\\SingleSessi
 
 
         # spectral embedding of single trial similarity matrix
-        # lem = sk.decomposition.PCA(n_components=3)
         # lem = sk.manifold.SpectralEmbedding(affinity='precomputed',n_components=3)
         # X = lem.fit_transform(S_t_rmat)
 
@@ -186,9 +188,22 @@ def single_session_figs(sess,dir = "G:\\My Drive\\Figures\\TwoTower\\SingleSessi
         ax_embed2d = f_embed.add_subplot(224)
         ax_embed2d.scatter(X[:,0],X[:,1],c=np.arange(X.shape[0]),cmap='viridis')
 
+        lem = sk.manifold.SpectralEmbedding(affinity='precomputed',n_components=3)
+        X = lem.fit_transform(S_t_rmat)
+        f_se = plt.figure(figsize=[20,20])
+        ax_se3d = f_se.add_subplot(221, projection='3d')
+        ax_se3d.scatter(X[:,0],X[:,1],X[:,2],c=effMorph,cmap='cool')
+        ax_se2d = f_se.add_subplot(222)
+        ax_se2d.scatter(X[:,0],X[:,1],c=effMorph,cmap='cool')
+        ax_se3d = f_se.add_subplot(223, projection='3d')
+        ax_se3d.scatter(X[:,0],X[:,1],X[:,2],c=np.arange(X.shape[0]),cmap='viridis')
+        ax_se2d = f_se.add_subplot(224)
+        ax_se2d.scatter(X[:,0],X[:,1],c=np.arange(X.shape[0]),cmap='viridis')
+
         if ops['savefigs']:
             f_stsm.savefig(os.path.join(outdir,'trial_simmat.pdf'),format='pdf')
             f_embed.savefig(os.path.join(outdir,'simmat_embed.pdf'),format='pdf')
+            f_se.savefig(os.pathjoin(outdir,'simmat_spectembed.pdf'),format='pdf')
 
 
     if ops['trial NMF']:

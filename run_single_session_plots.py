@@ -19,9 +19,7 @@ if __name__ == "__main__":
      '4139251.1','4139260.1','4139261.2',
      '4139278.2','4222157.4']
 
-    mice = [ '4139224.3', '4139224.5',
-    '4139251.1','4139260.1','4139261.2',
-    '4139278.2','4222157.4']
+
 
     # mice = ['4139266.3']
     df = pp.load_session_db()
@@ -29,10 +27,10 @@ if __name__ == "__main__":
     df = df[df['Imaging']==1]
     df = df.sort_values(['MouseName','DateTime','SessionNumber'])
 
-    ops = {'behavior':False,
-        'PCA':False,
-        'place cells':True,
-        'trial simmats':False,
+    ops = {'behavior':True,
+        'PCA':True,
+        'place cells':False,
+        'trial simmats':True,
         'trial NMF': False,
         'savefigs':True}
     for mouse in mice:
