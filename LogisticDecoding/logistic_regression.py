@@ -219,7 +219,7 @@ def plot_llr(llr_pos,effMorph,save=False,centers = None,nbins=5):
     f_mat = plt.figure(figsize=[10,10])
     gs = gridspec.GridSpec(1,6)
     ax_mat = f_mat.add_subplot(gs[:,:5])
-    ax_mat.imshow(-llr_pos[msort,:],cmap='cool',aspect='auto',vmin=-100,vmax=100)
+    ax_mat.imshow(-llr_pos[msort,:],cmap='cool',aspect='auto')
     ax_trial = f_mat.add_subplot(gs[:,-1])
     ax_trial.scatter(effMorph[msort][::-1],np.arange(effMorph.shape[0]),c=effMorph[msort][::-1],cmap='cool')
     ax_trial.set_ylim([0,effMorph.shape[0]])

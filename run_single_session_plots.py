@@ -28,7 +28,7 @@ if __name__ == "__main__":
     df = df.sort_values(['MouseName','DateTime','SessionNumber'])
 
     ops = {'behavior':True,
-        'PCA':True,
+        'PCA':False,
         'place cells':False,
         'trial simmats':True,
         'trial NMF': False,
