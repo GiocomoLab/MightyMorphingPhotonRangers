@@ -238,12 +238,12 @@ def run_all():
 
     # mice = ['4139265.3','4139265.4','4139265.5','4222153.1', '4222153.2', '4222154.1']
     # mice = ['4139224.3','4139224.5','4139251.1','4139260.1','4139261.2']
-    mice = ['4139266.3','4222174.1','4222175.0','4222157.3','4222157.4','4139278.2']
+    mice = ['4222157.4','4139278.2']
     df = pp.load_session_db()
     df = df[df['RewardCount']>30]
     df = df[df['Imaging']==1]
     df = df.sort_values(['MouseName','DateTime','SessionNumber'])
-    tracks = 'TwoTower_noTimeout|TwoTower_Timeout|Reversal_noTimeout|Reversal|TwoTower_foraging'
+    tracks = 'TwoTower_noTimeout|TwoTower_Timeout|Reversal_noTimeout|Reversal|TwoTower_foraging|FreqMorph_Timeout'
     df = df[df['Track'].str.contains(tracks,regex=True)]
 
 
@@ -310,7 +310,7 @@ def run_all():
                         plot_decoding(data_dict,rzone0=[350,415],rzone1=[250,315],save=True,
                                            prefix=prefix)
                     else:
-                        # plot_decoding(data_dict,save=True, prefix=prefix,plot_rzone=False)
+                        plot_decoding(data_dict,save=True, prefix=prefix,plot_rzone=False)
                         (f_mp,ax_mp), (f_pos,ax_pos), (f_mat,ax_mat,ax_trial), (f_trial_avg,ax_trial_avg) = plot_llr(llr_trial_mat,effMorph)
 
                         f_mp.savefig(os.path.join(dirbase,"%s_%d_llr_mean.pdf" % (sess['DateFolder'],sess['SessionNumber'])),format='pdf')

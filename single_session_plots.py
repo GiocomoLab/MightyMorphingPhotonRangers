@@ -46,15 +46,23 @@ def single_session_figs(sess,dir = "G:\\My Drive\\Figures\\TwoTower\\SingleSessi
 
 
     VRDat, C, S, A = pp.load_scan_sess(sess,fneu_coeff=.7,analysis='s2p')
-    S /= np.nanmean(S,axis=0)[np.newaxis,:]
+
+    S/=1546
+    S[np.isnan(S)]=0.
+    C[np.isnan(C)]=0.
+    C/=1546
+    # S /= np.nanmean(S,axis=0)[np.newaxis,:]
     # get trial by trial info
     trial_info, tstart_inds, teleport_inds = u.by_trial_info(VRDat)
-    S_trial_mat, occ_trial_mat, edges,centers = u.make_pos_bin_trial_matrices(S,VRDat['pos']._values,VRDat['tstart']._values,VRDat['teleport']._values,bin_size=10)
+    S_trial_mat, occ_trial_mat, edges,centers = u.make_pos_bin_trial_matrices(S,
+                                                VRDat['pos']._values,VRDat['tstart']._values,
+                                                VRDat['teleport']._values,bin_size=10,
+                                                speed = VRDat['speed']._values)
     S_trial_mat[np.isnan(S_trial_mat)]=0
     S_morph_dict = u.trial_type_dict(S_trial_mat,trial_info['morphs'])
     occ_morph_dict = u.trial_type_dict(occ_trial_mat,trial_info['morphs'])
 
-    effMorph = (trial_info['morphs']+trial_info['wallJitter']+trial_info['bckgndJitter']+.2)/1.4
+    effMorph = (trial_info['morphs']+trial_info['wallJitter']+trial_info['bckgndJitter']+.25)/1.5
     reward_pos = trial_info['reward_pos']
     reward_pos[np.isnan(reward_pos)]= 480
 
@@ -78,30 +86,30 @@ def single_session_figs(sess,dir = "G:\\My Drive\\Figures\\TwoTower\\SingleSessi
         speed_morph_dict = u.trial_type_dict(speed_trial_mat,trial_info['morphs'])
 
 
-        # plot behavior
-        if sess['Track'] in ('TwoTower_noTimeout','TwoTower_Timeout','Reversal','Reversal_noTimeout','FreqMorph_Decision','FreqMorph_Timeout'):
-            # use existing plotting functions
-
-
-
-            if sess['Track'] in ('TwoTower_noTimeout','TwoTower_Timeout','FreqMorph_Timeout','FreqMorph_Decision'):
-                f_lick, (ax_lick, meanlr_ax, lickrat_ax) = b.lick_plot_task(lick_morph_dict,edges,max_pos=max_pos,smooth=False,
-                                                rzone0=(250.,315),rzone1=(350,415))
-            else:
-                f_lick, (ax_lick, meanlr_ax, lickrat_ax) = b.lick_plot_task(lick_morph_dict,edges,max_pos=max_pos,smooth=False,
-                                                rzone1=(350.,415),rzone0=(250,315))
-
-            if sess['Track'] in ('TwoTower_noTimeout','TwoTower_Timeout','FreqMorph_Timeout','FreqMorph_Decision'):
-                f_speed,ax_speed = b.plot_speed_task(centers,speed_morph_dict,trial_info['morphs'],
-                                                        rzone0=(250.,315),rzone1=(350,415))
-            else:
-                f_speed,ax_speed = b.plot_speed_task(centers,speed_morph_dict,trial_info['morphs'],
-                                                        rzone1=(250.,315),rzone0=(350,415))
-        else:
-            f_lick, axarr_lick = b.behavior_raster_foraging(lick_trial_mat/np.nanmax(lick_trial_mat.ravel()),
-                                                    centers,effMorph,reward_pos/480.,smooth=False)
-            f_speed,axarr_speed = b.behavior_raster_foraging(speed_trial_mat/np.nanmax(speed_trial_mat.ravel()),
-                                                    centers,effMorph,reward_pos/480.,smooth=False)
+        # # plot behavior
+        # if sess['Track'] in ('TwoTower_noTimeout','TwoTower_Timeout','Reversal','Reversal_noTimeout','FreqMorph_Decision','FreqMorph_Timeout'):
+        #     # use existing plotting functions
+        #
+        #
+        #
+        #     if sess['Track'] in ('TwoTower_noTimeout','TwoTower_Timeout','FreqMorph_Timeout','FreqMorph_Decision'):
+        #         f_lick, (ax_lick, meanlr_ax, lickrat_ax) = b.lick_plot_task(lick_morph_dict,edges,max_pos=max_pos,smooth=False,
+        #                                         rzone0=(250.,315),rzone1=(350,415))
+        #     else:
+        #         f_lick, (ax_lick, meanlr_ax, lickrat_ax) = b.lick_plot_task(lick_morph_dict,edges,max_pos=max_pos,smooth=False,
+        #                                         rzone1=(350.,415),rzone0=(250,315))
+        #
+        #     if sess['Track'] in ('TwoTower_noTimeout','TwoTower_Timeout','FreqMorph_Timeout','FreqMorph_Decision'):
+        #         f_speed,ax_speed = b.plot_speed_task(centers,speed_morph_dict,trial_info['morphs'],
+        #                                                 rzone0=(250.,315),rzone1=(350,415))
+        #     else:
+        #         f_speed,ax_speed = b.plot_speed_task(centers,speed_morph_dict,trial_info['morphs'],
+        #                                                 rzone1=(250.,315),rzone0=(350,415))
+        # else:
+        f_lick, axarr_lick = b.behavior_raster_foraging(lick_trial_mat/np.nanmax(lick_trial_mat.ravel()),
+                                                centers,effMorph,reward_pos/480.,smooth=False)
+        f_speed,axarr_speed = b.behavior_raster_foraging(speed_trial_mat/np.nanmax(speed_trial_mat.ravel()),
+                                                centers,effMorph,reward_pos/480.,smooth=False)
         if ops['savefigs']:
             f_lick.savefig(os.path.join(outdir,'licks.pdf'),format='pdf')
             f_speed.savefig(os.path.join(outdir,'speed.pdf'),format='pdf')
@@ -109,8 +117,9 @@ def single_session_figs(sess,dir = "G:\\My Drive\\Figures\\TwoTower\\SingleSessi
     if ops['PCA']:
         # PCA
         pcnt = u.correct_trial_mask(trial_info['rewards'],tstart_inds,teleport_inds,S.shape[0])
-        S_sm = gaussian_filter1d(S,5,axis=0)
-        f_pca,[ax_pca, aax_pca, aaax_pca] = plot_pca(S_sm,VRDat,np.array([]),plot_err=False)
+        # S_sm = gaussian_filter1d(S,5,axis=0)
+        # print(np.isnan(S_sm).sum(),np.isnan(S).sum())
+        f_pca,[ax_pca, aax_pca, aaax_pca] = plot_pca(C,VRDat,np.array([]),plot_err=False)
 
         # DPCA
 
@@ -154,9 +163,12 @@ def single_session_figs(sess,dir = "G:\\My Drive\\Figures\\TwoTower\\SingleSessi
             f_singlecells.savefig(os.path.join(outdir,'singlecells.pdf'),format='pdf')
             f_SM.savefig(os.path.join(outdir,'morphxpos_simmat.pdf'),format='pdf')
             f_U.savefig(os.path.join(outdir,'morph_simmat.pdf'),format='pdf')
+            with open(os.path.join(outdir,'pc_masks.pkl'),'wb') as f:
+                pickle.dump({'masks':masks},f)
 
     if ops['trial simmats']:
         # trial by trial similarity matrix
+        rmask = trial_info['rewards']==0
         S_trial_mat[np.isnan(S_trial_mat)]=0
         S_trial_mat = sp.ndimage.filters.gaussian_filter1d(S_trial_mat,1,axis=1)
         if sess['Track'] in ('TwoTower_noTimeout','TwoTower_Timeout','FreqMorph_Timeout','FreqMorph_Decision'):
@@ -168,7 +180,24 @@ def single_session_figs(sess,dir = "G:\\My Drive\\Figures\\TwoTower\\SingleSessi
 
         f_stsm,axtup_stsm = sm.plot_trial_simmat(S_t_rmat,trial_info)
 
+        lar = np.zeros(effMorph.shape)
+        for trial in range(effMorph.shape[0]):
+            mask0 = trial_info['morphs']==0
+            mask1 = trial_info['morphs']==1
+            if trial_info['morphs'][trial]==0:
+                mask0[trial]=False
+            elif trial_info['morphs'][trial]==1:
+                mask1[trial]=False
 
+            centroid0, centroid1 = np.nanmean(S_tmat[mask0,:],axis=0), np.nanmean(S_tmat[mask1,:],axis=0)
+            centroid0/np.linalg.norm(centroid0,ord=2)
+            centroid1/np.linalg.norm(centroid1,ord=2)
+
+            lar[trial]= np.log(np.dot(S_tmat[trial,:],centroid0)/np.dot(S_tmat[trial,:],centroid1))
+
+        f_lar,ax_lar = plt.subplots()
+        ax_lar.scatter(effMorph,lar,c=effMorph,cmap='cool')
+        ax_lar.scatter(effMorph[rmask],lar[rmask],c='black')
         # spectral embedding of single trial similarity matrix
         # lem = sk.manifold.SpectralEmbedding(affinity='precomputed',n_components=3)
         # X = lem.fit_transform(S_t_rmat)
@@ -181,8 +210,12 @@ def single_session_figs(sess,dir = "G:\\My Drive\\Figures\\TwoTower\\SingleSessi
         f_embed = plt.figure(figsize=[20,20])
         ax_embed3d = f_embed.add_subplot(221, projection='3d')
         ax_embed3d.scatter(X[:,0],X[:,1],X[:,2],c=effMorph,cmap='cool')
+
+
+        ax_embed3d.scatter(X[rmask,0],X[rmask,1],X[rmask,2],c='black')
         ax_embed2d = f_embed.add_subplot(222)
         ax_embed2d.scatter(X[:,0],X[:,1],c=effMorph,cmap='cool')
+        ax_embed2d.scatter(X[rmask,0],X[rmask,1],c='black')
         ax_embed3d = f_embed.add_subplot(223, projection='3d')
         ax_embed3d.scatter(X[:,0],X[:,1],X[:,2],c=np.arange(X.shape[0]),cmap='viridis')
         ax_embed2d = f_embed.add_subplot(224)
@@ -190,11 +223,16 @@ def single_session_figs(sess,dir = "G:\\My Drive\\Figures\\TwoTower\\SingleSessi
 
         lem = sk.manifold.SpectralEmbedding(affinity='precomputed',n_components=3)
         X = lem.fit_transform(S_t_rmat)
+
         f_se = plt.figure(figsize=[20,20])
         ax_se3d = f_se.add_subplot(221, projection='3d')
         ax_se3d.scatter(X[:,0],X[:,1],X[:,2],c=effMorph,cmap='cool')
+        ax_se3d.scatter(X[rmask,0],X[rmask,1],X[rmask,2],c='black')
+
         ax_se2d = f_se.add_subplot(222)
         ax_se2d.scatter(X[:,0],X[:,1],c=effMorph,cmap='cool')
+        ax_se2d.scatter(X[rmask,0],X[rmask,1],c='black')
+
         ax_se3d = f_se.add_subplot(223, projection='3d')
         ax_se3d.scatter(X[:,0],X[:,1],X[:,2],c=np.arange(X.shape[0]),cmap='viridis')
         ax_se2d = f_se.add_subplot(224)
@@ -203,7 +241,89 @@ def single_session_figs(sess,dir = "G:\\My Drive\\Figures\\TwoTower\\SingleSessi
         if ops['savefigs']:
             f_stsm.savefig(os.path.join(outdir,'trial_simmat.pdf'),format='pdf')
             f_embed.savefig(os.path.join(outdir,'simmat_embed.pdf'),format='pdf')
-            f_se.savefig(os.pathjoin(outdir,'simmat_spectembed.pdf'),format='pdf')
+            f_se.savefig(os.path.join(outdir,'simmat_spectembed.pdf'),format='pdf')
+            f_lar.savefig(os.path.join(outdir,'lar.pdf'),format='pdf')
+
+
+    if ops['trial simmats'] and ops['place cells']:
+        # trial by trial similarity matrix
+        cellmask = np.zeros([S.shape[1],])<1
+        for k,v in masks.items():
+            cellmask = cellmask | v
+
+        S_trial_mat_pc = S_trial_mat[:,:,cellmask]
+        if sess['Track'] in ('TwoTower_noTimeout','TwoTower_Timeout','FreqMorph_Timeout','FreqMorph_Decision'):
+            S_tmat = np.reshape(S_trial_mat_pc[:,:20,:],[S_trial_mat.shape[0],-1])
+        else:
+            S_tmat = np.reshape(S_trial_mat_pc,[S_trial_mat.shape[0],-1])
+        S_tmat = S_tmat/np.linalg.norm(S_tmat,ord=2,axis=-1)[:,np.newaxis]
+        S_t_rmat = np.matmul(S_tmat,S_tmat.T)
+
+        f_stsm,axtup_stsm = sm.plot_trial_simmat(S_t_rmat,trial_info)
+
+        lar = np.zeros(effMorph.shape)
+        for trial in range(effMorph.shape[0]):
+            mask0 = trial_info['morphs']==0
+            mask1 = trial_info['morphs']==1
+            if trial_info['morphs'][trial]==0:
+                mask0[trial]=False
+            elif trial_info['morphs'][trial]==1:
+                mask1[trial]=False
+
+            centroid0, centroid1 = np.nanmean(S_tmat[mask0,:],axis=0), np.nanmean(S_tmat[mask1,:],axis=0)
+            centroid0/np.linalg.norm(centroid0,ord=2)
+            centroid1/np.linalg.norm(centroid1,ord=2)
+
+            lar[trial]= np.log(np.dot(S_tmat[trial,:],centroid0)/np.dot(S_tmat[trial,:],centroid1))
+
+        f_lar,ax_lar = plt.subplots()
+        ax_lar.scatter(effMorph,lar,c=effMorph,cmap='cool')
+        ax_lar.scatter(effMorph[rmask],lar[rmask],c='black')
+        # spectral embedding of single trial similarity matrix
+        # lem = sk.manifold.SpectralEmbedding(affinity='precomputed',n_components=3)
+        # X = lem.fit_transform(S_t_rmat)
+
+        [w,V]=np.linalg.eig(S_t_rmat)
+        order = np.argsort(w)[::-1]
+        w = w[order]
+        V=V[:,order]
+        X =  np.matmul(S_t_rmat,V[:,:3])
+        f_embed = plt.figure(figsize=[20,20])
+        ax_embed3d = f_embed.add_subplot(221, projection='3d')
+        ax_embed3d.scatter(X[:,0],X[:,1],X[:,2],c=effMorph,cmap='cool')
+
+
+        ax_embed3d.scatter(X[rmask,0],X[rmask,1],X[rmask,2],c='black')
+        ax_embed2d = f_embed.add_subplot(222)
+        ax_embed2d.scatter(X[:,0],X[:,1],c=effMorph,cmap='cool')
+        ax_embed2d.scatter(X[rmask,0],X[rmask,1],c='black')
+        ax_embed3d = f_embed.add_subplot(223, projection='3d')
+        ax_embed3d.scatter(X[:,0],X[:,1],X[:,2],c=np.arange(X.shape[0]),cmap='viridis')
+        ax_embed2d = f_embed.add_subplot(224)
+        ax_embed2d.scatter(X[:,0],X[:,1],c=np.arange(X.shape[0]),cmap='viridis')
+
+        lem = sk.manifold.SpectralEmbedding(affinity='precomputed',n_components=3)
+        X = lem.fit_transform(S_t_rmat)
+
+        f_se = plt.figure(figsize=[20,20])
+        ax_se3d = f_se.add_subplot(221, projection='3d')
+        ax_se3d.scatter(X[:,0],X[:,1],X[:,2],c=effMorph,cmap='cool')
+        ax_se3d.scatter(X[rmask,0],X[rmask,1],X[rmask,2],c='black')
+
+        ax_se2d = f_se.add_subplot(222)
+        ax_se2d.scatter(X[:,0],X[:,1],c=effMorph,cmap='cool')
+        ax_se2d.scatter(X[rmask,0],X[rmask,1],c='black')
+
+        ax_se3d = f_se.add_subplot(223, projection='3d')
+        ax_se3d.scatter(X[:,0],X[:,1],X[:,2],c=np.arange(X.shape[0]),cmap='viridis')
+        ax_se2d = f_se.add_subplot(224)
+        ax_se2d.scatter(X[:,0],X[:,1],c=np.arange(X.shape[0]),cmap='viridis')
+
+        if ops['savefigs']:
+            f_stsm.savefig(os.path.join(outdir,'trial_simmat_pc.pdf'),format='pdf')
+            f_embed.savefig(os.path.join(outdir,'simmat_embed_pc.pdf'),format='pdf')
+            f_se.savefig(os.path.join(outdir,'simmat_spectembed_pc.pdf'),format='pdf')
+            f_lar.savefig(os.path.join(outdir,'lar_pc.pdf'),format='pdf')
 
 
     if ops['trial NMF']:

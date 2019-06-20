@@ -126,7 +126,7 @@ def plot_trial_simmat(C,trial_info,vmax=None):
     msort = np.argsort(effMorph)
 
     x=np.arange(effMorph.size)
-    rmask = trial_info['rewards']==0
+    rmask = trial_info['rewards']>0
     tnumber = np.arange(x.shape[0])/x.shape[0]
 
 
@@ -138,14 +138,14 @@ def plot_trial_simmat(C,trial_info,vmax=None):
 
     m_ax = f.add_subplot(gs[10:12,:10])
     m_ax.scatter(x,effMorph,c=effMorph,cmap='cool')
-    m_ax.scatter(x[rmask],effMorph[rmask],c='black',s=10)
+    m_ax.scatter(x[~rmask],effMorph[~rmask],c='black',s=10)
     m_ax.set_xlim([0,x.shape[0]])
     m_ax.set_yticks([])
     m_ax.set_xticks([])
 
     t_ax = f.add_subplot(gs[12:,:10])
     t_ax.scatter(x,tnumber,c=tnumber,cmap='viridis')
-    t_ax.scatter(x[rmask],tnumber[rmask],c='black',s=10)
+    t_ax.scatter(x[~rmask],tnumber[~rmask],c='black',s=10)
     t_ax.set_xlim([0,x.shape[0]])
     t_ax.set_yticks([])
 
@@ -160,7 +160,10 @@ def plot_trial_simmat(C,trial_info,vmax=None):
 
     mm_ax = f.add_subplot(gs[10:12,10:20])
     mm_ax.scatter(x,effMorph[msort],c=effMorph[msort],cmap='cool')
-    mm_ax.scatter(x[rmask],effMorph[msort[rmask]],c='black',s=10)
+    emr = np.copy(effMorph)
+    emr[rmask]=np.nan
+
+    mm_ax.scatter(x,emr[msort],c='black',s=10)
     mm_ax.set_xlim([0,x.shape[0]])
     mm_ax.set_yticks([])
     mm_ax.set_xticks([])
@@ -180,7 +183,7 @@ def plot_trial_simmat(C,trial_info,vmax=None):
     cc_ax.set_xticks([])
     mc_ax = f.add_subplot(gs[10:12,20:])
     mc_ax.scatter(x,effMorph[clustsort],c=effMorph[clustsort],cmap='cool')
-    mc_ax.scatter(x[rmask],effMorph[clustsort[rmask]],c='black',s=10)
+    mc_ax.scatter(x,emr[clustsort],c='black',s=10)
     mc_ax.set_yticks([])
     mc_ax.set_xticks([])
     mc_ax.set_xlim([0,x.shape[0]])

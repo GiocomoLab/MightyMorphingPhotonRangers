@@ -13,7 +13,8 @@ from mpl_toolkits.mplot3d import Axes3D
 def plot_pca(C,VRDat,pcnt,plot_err=False):
     pca = PCA()
     trialMask = (VRDat['pos']>0) & (VRDat['pos']<445)
-    X = pca.fit_transform(C) #/np.amax(C))
+    print(np.isnan(C).sum(),np.isinf(C).sum())
+    X = pca.fit_transform(C/np.amax(C))
 
     print(X.shape)
     # skree plots
