@@ -171,10 +171,10 @@ def single_session_figs(sess,dir = "G:\\My Drive\\Figures\\TwoTower\\SingleSessi
         rmask = trial_info['rewards']==0
         S_trial_mat[np.isnan(S_trial_mat)]=0
         S_trial_mat = sp.ndimage.filters.gaussian_filter1d(S_trial_mat,1,axis=1)
-        if sess['Track'] in ('TwoTower_noTimeout','TwoTower_Timeout','FreqMorph_Timeout','FreqMorph_Decision'):
-            S_tmat = np.reshape(S_trial_mat[:,:20,:],[S_trial_mat.shape[0],-1])
-        else:
-            S_tmat = np.reshape(S_trial_mat,[S_trial_mat.shape[0],-1])
+        # if sess['Track'] in ('TwoTower_Timeout','FreqMorph_Timeout'):
+        #     S_tmat = np.reshape(S_trial_mat[:,:20,:],[S_trial_mat.shape[0],-1])
+        # else:
+        S_tmat = np.reshape(S_trial_mat,[S_trial_mat.shape[0],-1])
         S_tmat = S_tmat/np.linalg.norm(S_tmat,ord=2,axis=-1)[:,np.newaxis]
         S_t_rmat = np.matmul(S_tmat,S_tmat.T)
 
@@ -247,7 +247,7 @@ def single_session_figs(sess,dir = "G:\\My Drive\\Figures\\TwoTower\\SingleSessi
 
     if ops['trial simmats'] and ops['place cells']:
         # trial by trial similarity matrix
-        cellmask = np.zeros([S.shape[1],])<1
+        cellmask = np.zeros([S.shape[1],])>1
         for k,v in masks.items():
             cellmask = cellmask | v
 

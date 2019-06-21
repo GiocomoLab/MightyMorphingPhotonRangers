@@ -327,7 +327,7 @@ def by_trial_info(data,rzone0=(250,315),rzone1=(350,415)):
             tj, c = sp.stats.mode(sub_frame['towerJitter'],nan_policy='omit')
             towerJitter[i] = tj
             bj, c = sp.stats.mode(sub_frame['bckgndJitter'],nan_policy='omit')
-            bckgndJitter = bj
+            bckgndJitter[i] = bj
             co, c = sp.stats.mode(sub_frame['clickOn'],nan_policy='omit')
             clickOn[i]=co
 
