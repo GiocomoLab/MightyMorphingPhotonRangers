@@ -137,7 +137,7 @@ def plot_trial_simmat(C,trial_info,vmax=None,morphcm='cool'):
     c_ax.set_xticks([])
 
     m_ax = f.add_subplot(gs[10:12,:10])
-    m_ax.scatter(x,effMorph,c=effMorph,cmap=morphcm)
+    m_ax.scatter(x,effMorph,c=1-effMorph,cmap=morphcm)
     m_ax.scatter(x[~rmask],effMorph[~rmask],c='black',s=10)
     m_ax.set_xlim([0,x.shape[0]])
     m_ax.set_yticks([])
@@ -159,7 +159,7 @@ def plot_trial_simmat(C,trial_info,vmax=None,morphcm='cool'):
     cm_ax.set_xticks([])
 
     mm_ax = f.add_subplot(gs[10:12,10:20])
-    mm_ax.scatter(x,effMorph[msort],c=effMorph[msort],cmap=morphcm)
+    mm_ax.scatter(x,effMorph[msort],c=1-effMorph[msort],cmap=morphcm)
     emr = np.copy(effMorph)
     emr[rmask]=np.nan
 
@@ -182,7 +182,7 @@ def plot_trial_simmat(C,trial_info,vmax=None,morphcm='cool'):
     cc_ax.set_yticks([])
     cc_ax.set_xticks([])
     mc_ax = f.add_subplot(gs[10:12,20:])
-    mc_ax.scatter(x,effMorph[clustsort],c=effMorph[clustsort],cmap=morphcm)
+    mc_ax.scatter(x,effMorph[clustsort],c=1-effMorph[clustsort],cmap=morphcm)
     mc_ax.scatter(x,emr[clustsort],c='black',s=10)
     mc_ax.set_yticks([])
     mc_ax.set_xticks([])

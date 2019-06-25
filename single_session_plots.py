@@ -196,7 +196,7 @@ def single_session_figs(sess,dir = "G:\\My Drive\\Figures\\TwoTower\\SingleSessi
             lar[trial]= np.log(np.dot(S_tmat[trial,:],centroid0)/np.dot(S_tmat[trial,:],centroid1))
 
         f_lar,ax_lar = plt.subplots()
-        ax_lar.scatter(effMorph,lar,c=effMorph,cmap='cool')
+        ax_lar.scatter(effMorph,lar,c=1-effMorph,cmap='cool')
         ax_lar.scatter(effMorph[rmask],lar[rmask],c='black')
         # spectral embedding of single trial similarity matrix
         # lem = sk.manifold.SpectralEmbedding(affinity='precomputed',n_components=3)
@@ -209,12 +209,12 @@ def single_session_figs(sess,dir = "G:\\My Drive\\Figures\\TwoTower\\SingleSessi
         X =  np.matmul(S_t_rmat,V[:,:3])
         f_embed = plt.figure(figsize=[20,20])
         ax_embed3d = f_embed.add_subplot(221, projection='3d')
-        ax_embed3d.scatter(X[:,0],X[:,1],X[:,2],c=effMorph,cmap='cool')
+        ax_embed3d.scatter(X[:,0],X[:,1],X[:,2],c=1-effMorph,cmap='cool')
 
 
         ax_embed3d.scatter(X[rmask,0],X[rmask,1],X[rmask,2],c='black')
         ax_embed2d = f_embed.add_subplot(222)
-        ax_embed2d.scatter(X[:,0],X[:,1],c=effMorph,cmap='cool')
+        ax_embed2d.scatter(X[:,0],X[:,1],c=1-effMorph,cmap='cool')
         ax_embed2d.scatter(X[rmask,0],X[rmask,1],c='black')
         ax_embed3d = f_embed.add_subplot(223, projection='3d')
         ax_embed3d.scatter(X[:,0],X[:,1],X[:,2],c=np.arange(X.shape[0]),cmap='viridis')
@@ -226,11 +226,11 @@ def single_session_figs(sess,dir = "G:\\My Drive\\Figures\\TwoTower\\SingleSessi
 
         f_se = plt.figure(figsize=[20,20])
         ax_se3d = f_se.add_subplot(221, projection='3d')
-        ax_se3d.scatter(X[:,0],X[:,1],X[:,2],c=effMorph,cmap='cool')
+        ax_se3d.scatter(X[:,0],X[:,1],X[:,2],c=1-effMorph,cmap='cool')
         ax_se3d.scatter(X[rmask,0],X[rmask,1],X[rmask,2],c='black')
 
         ax_se2d = f_se.add_subplot(222)
-        ax_se2d.scatter(X[:,0],X[:,1],c=effMorph,cmap='cool')
+        ax_se2d.scatter(X[:,0],X[:,1],c=1-effMorph,cmap='cool')
         ax_se2d.scatter(X[rmask,0],X[rmask,1],c='black')
 
         ax_se3d = f_se.add_subplot(223, projection='3d')
@@ -277,7 +277,7 @@ def single_session_figs(sess,dir = "G:\\My Drive\\Figures\\TwoTower\\SingleSessi
             lar[trial]= np.log(np.dot(S_tmat[trial,:],centroid0)/np.dot(S_tmat[trial,:],centroid1))
 
         f_lar,ax_lar = plt.subplots()
-        ax_lar.scatter(effMorph,lar,c=effMorph,cmap='cool')
+        ax_lar.scatter(effMorph,lar,c=1-effMorph,cmap='cool')
         ax_lar.scatter(effMorph[rmask],lar[rmask],c='black')
         # spectral embedding of single trial similarity matrix
         # lem = sk.manifold.SpectralEmbedding(affinity='precomputed',n_components=3)
@@ -290,12 +290,12 @@ def single_session_figs(sess,dir = "G:\\My Drive\\Figures\\TwoTower\\SingleSessi
         X =  np.matmul(S_t_rmat,V[:,:3])
         f_embed = plt.figure(figsize=[20,20])
         ax_embed3d = f_embed.add_subplot(221, projection='3d')
-        ax_embed3d.scatter(X[:,0],X[:,1],X[:,2],c=effMorph,cmap='cool')
+        ax_embed3d.scatter(X[:,0],X[:,1],X[:,2],c=1-effMorph,cmap='cool')
 
 
         ax_embed3d.scatter(X[rmask,0],X[rmask,1],X[rmask,2],c='black')
         ax_embed2d = f_embed.add_subplot(222)
-        ax_embed2d.scatter(X[:,0],X[:,1],c=effMorph,cmap='cool')
+        ax_embed2d.scatter(X[:,0],X[:,1],c=1-effMorph,cmap='cool')
         ax_embed2d.scatter(X[rmask,0],X[rmask,1],c='black')
         ax_embed3d = f_embed.add_subplot(223, projection='3d')
         ax_embed3d.scatter(X[:,0],X[:,1],X[:,2],c=np.arange(X.shape[0]),cmap='viridis')
@@ -307,11 +307,11 @@ def single_session_figs(sess,dir = "G:\\My Drive\\Figures\\TwoTower\\SingleSessi
 
         f_se = plt.figure(figsize=[20,20])
         ax_se3d = f_se.add_subplot(221, projection='3d')
-        ax_se3d.scatter(X[:,0],X[:,1],X[:,2],c=effMorph,cmap='cool')
+        ax_se3d.scatter(X[:,0],X[:,1],X[:,2],c=1-effMorph,cmap='cool')
         ax_se3d.scatter(X[rmask,0],X[rmask,1],X[rmask,2],c='black')
 
         ax_se2d = f_se.add_subplot(222)
-        ax_se2d.scatter(X[:,0],X[:,1],c=effMorph,cmap='cool')
+        ax_se2d.scatter(X[:,0],X[:,1],c=1-effMorph,cmap='cool')
         ax_se2d.scatter(X[rmask,0],X[rmask,1],c='black')
 
         ax_se3d = f_se.add_subplot(223, projection='3d')
@@ -344,19 +344,19 @@ def single_session_figs(sess,dir = "G:\\My Drive\\Figures\\TwoTower\\SingleSessi
         f_nmf,ax_nmf = plt.subplots(3,2,figsize=[10,15])
         xtrain_arr = np.arange(S_tmat.shape[0])[trialmask]
         xtest_arr = np.arange(S_tmat.shape[0])[~trialmask]
-        ax_nmf[0,0].scatter(xtrain_arr,W_train[:,0],c=effMorph[trialmask],cmap='cool')
+        ax_nmf[0,0].scatter(xtrain_arr,W_train[:,0],c=1-effMorph[trialmask],cmap='cool')
         ax_nmf[0,0].set_title('train component 1')
-        ax_nmf[0,1].scatter(xtest_arr,W_test[:,0],c=effMorph[~trialmask],cmap='cool')
+        ax_nmf[0,1].scatter(xtest_arr,W_test[:,0],c=1-effMorph[~trialmask],cmap='cool')
         ax_nmf[0,1].set_title('test component 1')
 
-        ax_nmf[1,0].scatter(xtrain_arr,W_train[:,1],c=effMorph[trialmask],cmap='cool')
+        ax_nmf[1,0].scatter(xtrain_arr,W_train[:,1],c=1-effMorph[trialmask],cmap='cool')
         ax_nmf[1,0].set_title('train component 2')
-        ax_nmf[1,1].scatter(xtest_arr,W_test[:,1],c=effMorph[~trialmask],cmap='cool')
+        ax_nmf[1,1].scatter(xtest_arr,W_test[:,1],c=1-effMorph[~trialmask],cmap='cool')
         ax_nmf[1,1].set_title('test component 2')
 
-        ax_nmf[2,0].scatter(W_train[:,0],W_train[:,1],c=effMorph[trialmask],cmap='cool')
+        ax_nmf[2,0].scatter(W_train[:,0],W_train[:,1],c=1-effMorph[trialmask],cmap='cool')
         ax_nmf[2,0].set_title('train')
-        ax_nmf[2,1].scatter(W_test[:,0],W_test[:,1],c=effMorph[~trialmask],cmap='cool')
+        ax_nmf[2,1].scatter(W_test[:,0],W_test[:,1],c=1-effMorph[~trialmask],cmap='cool')
         ax_nmf[2,1].set_title('test')
 
         if ops['savefigs']:

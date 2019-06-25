@@ -103,14 +103,14 @@ def load_scan_sess(sess,analysis='s2p',plane=0,fneu_coeff=.7):
         Fneu = np.load(os.path.join(folder,'Fneu.npy'))
         iscell =  np.load(os.path.join(folder,'iscell.npy'))
         S = np.load(os.path.join(folder,'spks.npy'))
-        C = F-fneu_coeff*Fneu
-        C=C[iscell[:,0]>0,:].T
+        F_ = F-fneu_coeff*Fneu
+        C=F_[iscell[:,0]>0,:].T
         C = u.df(C)
         S=S[iscell[:,0 ]>0,:].T
         frame_diff = VRDat.shape[0]-C.shape[0]
         print('frame diff',frame_diff)
         assert (frame_diff==0), "something is wrong with aligning VR and calcium data"
-        return VRDat,C,S,None
+        return VRDat,C,S,F_[iscell[:,0]>0,:].T
     else:
         return
 
