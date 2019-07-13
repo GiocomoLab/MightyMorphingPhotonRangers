@@ -271,8 +271,8 @@ def single_session_figs(sess,dir = "G:\\My Drive\\Figures\\TwoTower\\SingleSessi
                 mask1[trial]=False
 
             centroid0, centroid1 = np.nanmean(S_tmat[mask0,:],axis=0), np.nanmean(S_tmat[mask1,:],axis=0)
-            centroid0/np.linalg.norm(centroid0,ord=2)
-            centroid1/np.linalg.norm(centroid1,ord=2)
+            centroid0/=np.linalg.norm(centroid0,ord=2)
+            centroid1/=np.linalg.norm(centroid1,ord=2)
 
             lar[trial]= np.log(np.dot(S_tmat[trial,:],centroid0)/np.dot(S_tmat[trial,:],centroid1))
 
@@ -332,7 +332,7 @@ def single_session_figs(sess,dir = "G:\\My Drive\\Figures\\TwoTower\\SingleSessi
         trialmask = np.zeros([S_tmat.shape[0]])
         trialmask[np.random.permutation(S_tmat.shape[0])[:int(S_tmat.shape[0]/2)]]=1
         trialmask = trialmask>0.
-        trialmask[:3]=False
+        trialmask[:5]=False
 
         results = nmf.fit_ensemble(S_tmat[trialmask,:],np.arange(1,11),n_replicates=5)
         f_ens,ax_ens = plt.subplots()

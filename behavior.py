@@ -168,7 +168,7 @@ def behavior_raster_foraging(lick_mat,centers,morphs,reward_pos,smooth=True, max
     # lick x pos
     #       colored by morph
     ax = f.add_subplot(gs[:,:2])
-    ax = u.smooth_raster(centers,lick_mat,vals=1-morphs,ax=ax,smooth=smooth,cmap='cool')
+    ax = u.smooth_raster(centers,lick_mat,vals=1-morphs,ax=ax,smooth=smooth,cmap='winter')
     ax.fill_betweenx([0,lick_mat.shape[0]+1],225,400,color='black',alpha=.3,zorder=0)
     ax.set_ylabel('Trial',size='xx-large')
     axarr.append(ax)
@@ -177,7 +177,7 @@ def behavior_raster_foraging(lick_mat,centers,morphs,reward_pos,smooth=True, max
     # sort trials by morph
     ax = f.add_subplot(gs[:,2:4])
     msort = np.argsort(morphs)
-    ax = u.smooth_raster(centers,lick_mat[msort,:],vals=1-morphs[msort],ax=ax,smooth=smooth,cmap='cool')
+    ax = u.smooth_raster(centers,lick_mat[msort,:],vals=1-morphs[msort],ax=ax,smooth=smooth,cmap='winter')
     ax.fill_betweenx([0,lick_mat.shape[0]+1],225,400,color='black',alpha=.3,zorder=0)
     axarr.append(ax)
 
@@ -189,7 +189,7 @@ def behavior_raster_foraging(lick_mat,centers,morphs,reward_pos,smooth=True, max
     # ax.axvline(200,ymin=0,ymax=lick_mat.shape[0]+1)
     ax.fill_betweenx([0,lick_mat.shape[0]+1],225,400,color='black',alpha=.3,zorder=0)
     rsort = np.argsort(reward_pos)
-    ax = u.smooth_raster(centers,lick_mat[rsort,:],vals=reward_pos[rsort],ax=ax,smooth=smooth,cmap='viridis')
+    ax = u.smooth_raster(centers,lick_mat[rsort,:],vals=reward_pos[rsort],ax=ax,smooth=smooth,cmap='cividis')
 
     axarr.append(ax)
 

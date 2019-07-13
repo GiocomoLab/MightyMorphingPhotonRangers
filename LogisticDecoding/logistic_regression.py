@@ -339,6 +339,8 @@ def run_all():
                         f_pos.savefig(os.path.join(dirbase,"%s_%d_llr_singletrials.pdf" % (sess['DateFolder'],sess['SessionNumber'])),format='pdf')
                         f_mat.savefig(os.path.join(dirbase,"%s_%d_llr_mat.pdf" % (sess['DateFolder'],sess['SessionNumber'])),format='pdf')
                         f_trial_avg.savefig(os.path.join(dirbase,"%s_%d_llr_trialavg.pdf" % (sess['DateFolder'],sess['SessionNumber'])),format='pdf')
+
+
                 # confmat,f_cmat,ax_cmat = confusion_matrix(data_dict,save=False,check_pcnt = True,
                     #                     check_omissions = False,plot=True)
                         # f.savefig(os.path.join(prefix,"trial%d_morph%2f_reward%d.pdf" % (t,morphs[t],int(rewards[t]))),format='pdf')
