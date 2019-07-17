@@ -238,6 +238,7 @@ def across_trial_avg(trialMat,labelVec):
         avgMat = np.zeros([labels.shape[0],trialMat.shape[1],trialMat.shape[2]])
     else:
         avgMat = np.zeros([labels.shape[0],trialMat.shape[1],1])
+        trialMat = trialMat[:,:,np.newaxis]
 
     for i, val in enumerate(labels.tolist()):
         #print(np.where(labelVec==val)[0].shape)
