@@ -435,7 +435,7 @@ def plot_placecells(C_morph_dict,masks,cv_sort=True):
             #fr_n[:,j] = gaussian_filter1d(fr[:,j],2)
         fr_n0, fr_n1 = fr_n0[:,masks[0]], fr_n1[:,masks[1]]
         fr_n0, fr_n1 = fr_n0[:,sort0], fr_n1[:,sort1]
-        ax[0,i].imshow(fr_n0.T,aspect='auto',cmap='Greys')
-        ax[1,i].imshow(fr_n1.T,aspect='auto',cmap='Greys')
+        ax[0,i].imshow(fr_n0.T,aspect='auto',cmap='magma')
+        ax[1,i].imshow(fr_n1.T,aspect='auto',cmap='magma')
 
     return f, ax
