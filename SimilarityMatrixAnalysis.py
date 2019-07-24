@@ -29,94 +29,13 @@ def set_default_ops(d):
     return ops
 
 
-def single_session(sess,ops = {},plot=True):
-    '''calculate similarity matrices, average within the morphs and plot results'''
-    # load calcium data and aligned vr
-    VRDat, C, S, A = pp.load_scan_sess(sess,fneu_coeff=0.7)
-    ops = set_default_ops(ops)
-
-    if ops['deconv']:
-        C=S
-    else:
-        C = u.df(C)
-
-
-    if ops['mask'] is not None:
-        C = C[:,ops['mask']]
-
-    # get trial by trial info
-    trial_info, tstart_inds, teleport_inds = u.by_trial_info(VRDat)
-    C_trial_mat, occ_trial_mat, edges,centers = u.make_pos_bin_trial_matrices(C,VRDat['pos']._values,VRDat['tstart']._values,VRDat['teleport']._values)
-    morphs = trial_info['morphs']
-    C_morph_dict = u.trial_type_dict(C_trial_mat,morphs)
-
-    mlist = np.unique(np.sort(morphs)).tolist()
-    m = len(mlist)
-    if ops['bootstrap']:
-        nperms = 50
-        S_full = morph_simmat(C_morph_dict, corr=ops['corr'])
-
-        U_full = morph_mean_simmat(S_full,m)
-
-        # allocate space
-        S_bs = np.zeros([S_full.shape[0],S_full.shape[1], nperms])
-        U_bs = np.zeros([m,m,nperms])
-
-        for p in range(nperms):
-            C_tmp = {}
-            for morph in mlist:
-                bs_n = int(.67*C_morph_dict[morph].shape[0]) # take random 2/3 of trials of each type
-                order = np.random.permutation(C_morph_dict[morph].shape[0])[:bs_n]
-                C_tmp[morph]= C_morph_dict[morph][order,:,:]
-
-
-            S_bs[:,:,p] = morph_simmat(C_tmp,corr=corr,cell_normalize=cell_normalize)
-            U_bs[:,:,p] = morph_mean_simmat(S_bs[:,:,p],m)
-
-        f_S,ax_S = plot_simmat(np.nanmean(S_bs,axis=-1),m)
-
-        f_U,ax_U = plt.subplots(figsize=[5,5])
-
-        ax_U.imshow(np.nanmean(U_bs,axis=-1),cmap='Greys')
-
-        return S_bs, U_bs, (f_S,ax_S), (f_U, ax_U)
-
-
-
-    else:
-        S = morph_simmat(C_morph_dict, corr=ops['corr'])
-
-
-        U= morph_mean_simmat(S,m)
-        # if m==5:
-        #     for i,morph in enumerate([0,.25,.5,.75,1.]):
-        #         if i in (0,1):
-        #             FR = C_morph_dict[morph]
-        #             FR0 = np.nanmean(FR[0::2,:,:],axis=0)
-        #             FR1 = np.nanmean(FR[1::2,:,:],axis=0)
-        #             FR0,FR1 = sp.stats.zscore(FR0.ravel()),sp.stats.zscore(FR1.ravel())
-        #             U[i,i] = 1/FR0.shape[0]*np.dot(FR0,FR1)
-        #
-        #         # U[i,i] = (1/FR0.shape[0]*np.matmul(FR0.T,FR1)).mean()
-
-        if plot:
-            f_S,ax_S = plot_simmat(S,m)
-
-            f_U,ax_U = plt.subplots(figsize=[5,5])
-            ax_U.imshow(U,cmap='Greys')
-
-            # ax_U[1].imshow(U_rnorm,cmap='Greys')
-
-            return S, U, (f_S,ax_S), (f_U, ax_U)
-        else:
-            return S, U
-
 
 def plot_trial_simmat(C,trial_info,vmax=None,morphcm='cool'):
     '''plot similarity matrices comparing each trial'''
 
     if vmax is None:
-        vmax = np.percentile(C.ravel(),95)
+        vmax = np.percentile(C.ravel(),90)
+        vmin = np.percentile(C.ravel(),10)
 
 
     f = plt.figure(figsize=[30,12])
@@ -132,7 +51,7 @@ def plot_trial_simmat(C,trial_info,vmax=None,morphcm='cool'):
 
     # sort by trial order
     c_ax = f.add_subplot(gs[:10,:10])
-    c_ax.imshow(C,cmap='magma',vmin=0,vmax=vmax,aspect='auto')
+    c_ax.imshow(C,cmap='cividis',vmin=vmin,vmax=vmax,aspect='auto')
     c_ax.set_yticks([])
     c_ax.set_xticks([])
 
@@ -154,7 +73,7 @@ def plot_trial_simmat(C,trial_info,vmax=None,morphcm='cool'):
 
     # sort by morph value
     cm_ax = f.add_subplot(gs[:10,10:20])
-    cm_ax.imshow(C_msort,cmap='magma',vmin=0,vmax=vmax,aspect='auto')
+    cm_ax.imshow(C_msort,cmap='cividis',vmin=vmin,vmax=vmax,aspect='auto')
     cm_ax.set_yticks([])
     cm_ax.set_xticks([])
 
@@ -178,7 +97,7 @@ def plot_trial_simmat(C,trial_info,vmax=None,morphcm='cool'):
 
 
     cc_ax = f.add_subplot(gs[:10,20:])
-    cc_ax.imshow(C_csort,cmap='magma',vmin=0,vmax=vmax,aspect='auto')
+    cc_ax.imshow(C_csort,cmap='cividis',vmin=vmin,vmax=vmax,aspect='auto')
     cc_ax.set_yticks([])
     cc_ax.set_xticks([])
     mc_ax = f.add_subplot(gs[10:12,20:])
@@ -302,3 +221,88 @@ def morph_by_cell_mat(C_morph_dict,sig=3):
                 print(X.shape,fr.shape)
                 X = np.hstack((X,fr.T))
     return X
+
+
+#
+#
+# def single_session(sess,ops = {},plot=True):
+#     '''calculate similarity matrices, average within the morphs and plot results'''
+#     # load calcium data and aligned vr
+#     VRDat, C, S, A = pp.load_scan_sess(sess,fneu_coeff=0.7)
+#     ops = set_default_ops(ops)
+#
+#     if ops['deconv']:
+#         C=S
+#     else:
+#         C = u.df(C)
+#
+#
+#     if ops['mask'] is not None:
+#         C = C[:,ops['mask']]
+#
+#     # get trial by trial info
+#     trial_info, tstart_inds, teleport_inds = u.by_trial_info(VRDat)
+#     C_trial_mat, occ_trial_mat, edges,centers = u.make_pos_bin_trial_matrices(C,VRDat['pos']._values,VRDat['tstart']._values,VRDat['teleport']._values)
+#     morphs = trial_info['morphs']
+#     C_morph_dict = u.trial_type_dict(C_trial_mat,morphs)
+#
+#     mlist = np.unique(np.sort(morphs)).tolist()
+#     m = len(mlist)
+#     if ops['bootstrap']:
+#         nperms = 50
+#         S_full = morph_simmat(C_morph_dict, corr=ops['corr'])
+#
+#         U_full = morph_mean_simmat(S_full,m)
+#
+#         # allocate space
+#         S_bs = np.zeros([S_full.shape[0],S_full.shape[1], nperms])
+#         U_bs = np.zeros([m,m,nperms])
+#
+#         for p in range(nperms):
+#             C_tmp = {}
+#             for morph in mlist:
+#                 bs_n = int(.67*C_morph_dict[morph].shape[0]) # take random 2/3 of trials of each type
+#                 order = np.random.permutation(C_morph_dict[morph].shape[0])[:bs_n]
+#                 C_tmp[morph]= C_morph_dict[morph][order,:,:]
+#
+#
+#             S_bs[:,:,p] = morph_simmat(C_tmp,corr=corr,cell_normalize=cell_normalize)
+#             U_bs[:,:,p] = morph_mean_simmat(S_bs[:,:,p],m)
+#
+#         f_S,ax_S = plot_simmat(np.nanmean(S_bs,axis=-1),m)
+#
+#         f_U,ax_U = plt.subplots(figsize=[5,5])
+#
+#         ax_U.imshow(np.nanmean(U_bs,axis=-1),cmap='Greys')
+#
+#         return S_bs, U_bs, (f_S,ax_S), (f_U, ax_U)
+#
+#
+#
+#     else:
+#         S = morph_simmat(C_morph_dict, corr=ops['corr'])
+#
+#
+#         U= morph_mean_simmat(S,m)
+#         # if m==5:
+#         #     for i,morph in enumerate([0,.25,.5,.75,1.]):
+#         #         if i in (0,1):
+#         #             FR = C_morph_dict[morph]
+#         #             FR0 = np.nanmean(FR[0::2,:,:],axis=0)
+#         #             FR1 = np.nanmean(FR[1::2,:,:],axis=0)
+#         #             FR0,FR1 = sp.stats.zscore(FR0.ravel()),sp.stats.zscore(FR1.ravel())
+#         #             U[i,i] = 1/FR0.shape[0]*np.dot(FR0,FR1)
+#         #
+#         #         # U[i,i] = (1/FR0.shape[0]*np.matmul(FR0.T,FR1)).mean()
+#
+#         if plot:
+#             f_S,ax_S = plot_simmat(S,m)
+#
+#             f_U,ax_U = plt.subplots(figsize=[5,5])
+#             ax_U.imshow(U,cmap='Greys')
+#
+#             # ax_U[1].imshow(U_rnorm,cmap='Greys')
+#
+#             return S, U, (f_S,ax_S), (f_U, ax_U)
+#         else:
+#             return S, U
