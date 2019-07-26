@@ -136,7 +136,7 @@ def single_session_figs(sess,dir = "G:\\My Drive\\Figures\\TwoTower\\SingleSessi
                         win_trial_perm=True,morphlist=np.unique(trial_info['morphs']).tolist())
 
         # plot place cells by morph
-        f_pc, ax_pc = pc.plot_placecells(S_morph_dict,masks)
+        f_pc, ax_pc,PC_dict = pc.plot_placecells(S_morph_dict,masks)
 
         # number in each environment
         print('morph 0 place cells = %g out of %g , %f ' % (masks[0].sum(), masks[0].shape[0], masks[0].sum()/masks[0].shape[0]))
@@ -151,12 +151,12 @@ def single_session_figs(sess,dir = "G:\\My Drive\\Figures\\TwoTower\\SingleSessi
         f_singlecells = pc.plot_top_cells(S_trial_mat,masks,SI,effMorph)
 
         # position by morph similarity matrix averaging trials
-        SM = sm.morph_simmat(S_morph_dict,corr=True)
+        SM = sm.morph_simmat(S_morph_dict,corr=False)
         m=np.unique(trial_info['morphs']).size
         U  = sm.morph_mean_simmat(SM,m)
         f_SM, ax_SM = sm.plot_simmat(SM,m)
         f_U,ax_U = plt.subplots()
-        ax_U.imshow(U,cmap='Greys')
+        ax_U.imshow(U,cmap='pink')
 
         if ops['savefigs']:
             f_pc.savefig(os.path.join(outdir,'placecells.pdf'),format='pdf')

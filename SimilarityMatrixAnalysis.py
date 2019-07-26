@@ -51,7 +51,7 @@ def plot_trial_simmat(C,trial_info,vmax=None,morphcm='cool'):
 
     # sort by trial order
     c_ax = f.add_subplot(gs[:10,:10])
-    c_ax.imshow(C,cmap='cividis',vmin=vmin,vmax=vmax,aspect='auto')
+    c_ax.imshow(C,cmap='Greys',vmin=vmin,vmax=vmax,aspect='auto')
     c_ax.set_yticks([])
     c_ax.set_xticks([])
 
@@ -73,7 +73,7 @@ def plot_trial_simmat(C,trial_info,vmax=None,morphcm='cool'):
 
     # sort by morph value
     cm_ax = f.add_subplot(gs[:10,10:20])
-    cm_ax.imshow(C_msort,cmap='cividis',vmin=vmin,vmax=vmax,aspect='auto')
+    cm_ax.imshow(C_msort,cmap='Greys',vmin=vmin,vmax=vmax,aspect='auto')
     cm_ax.set_yticks([])
     cm_ax.set_xticks([])
 
@@ -97,7 +97,7 @@ def plot_trial_simmat(C,trial_info,vmax=None,morphcm='cool'):
 
 
     cc_ax = f.add_subplot(gs[:10,20:])
-    cc_ax.imshow(C_csort,cmap='cividis',vmin=vmin,vmax=vmax,aspect='auto')
+    cc_ax.imshow(C_csort,cmap='Greys',vmin=vmin,vmax=vmax,aspect='auto')
     cc_ax.set_yticks([])
     cc_ax.set_xticks([])
     mc_ax = f.add_subplot(gs[10:12,20:])
@@ -202,7 +202,7 @@ def morph_simmat(C_morph_dict, corr = False ):
         return 1/X.shape[0]*np.matmul(X.T,X)
 
     else: # scale by l2 norm to give cosine similarity
-        X/=np.power(X,2).sum(axis=0)[np.newaxis,:]
+        X/=np.linalg.norm(X,2,axis=0)[np.newaxis,:]
         return np.matmul(X.T,X)
 
 

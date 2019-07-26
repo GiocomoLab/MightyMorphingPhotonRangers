@@ -384,14 +384,16 @@ def spatial_info_perm_test(SI,C,position,tstart,tstop,nperms = 10000,shuffled_SI
 
     return p, shuffled_SI
 
-def plot_placecells(C_morph_dict,masks,cv_sort=True):
+def plot_placecells(C_morph_dict,masks,cv_sort=True, plot = True):
     '''plot place place cell results'''
 
     morphs = [k for k in C_morph_dict.keys() if isinstance(k,np.float64)]
-    f,ax = plt.subplots(2,len(morphs),figsize=[5*len(morphs),15])
+    if plot:
+        f,ax = plt.subplots(2,len(morphs),figsize=[5*len(morphs),15])
 
     getSort = lambda fr : np.argsort(np.argmax(np.squeeze(np.nanmean(fr,axis=0)),axis=0))
-
+    PC_dict = {}
+    PC_dict[0],PC_dict[1] = {},{}
     if cv_sort:
         ntrials0 = C_morph_dict[0].shape[0]
         sort_trials_0 = np.random.permutation(ntrials0)
@@ -400,12 +402,20 @@ def plot_placecells(C_morph_dict,masks,cv_sort=True):
         arr0 = arr0[sort_trials_0[:ht0],:,:]
         sort0 = getSort(arr0)
 
+        _arr0 = np.copy(arr0)
+        _arr0[np.isnan(arr0)]=0.
+        norm0 = np.amax(np.nanmean(_arr0,axis=0),axis=0)
+
         ntrials1 = C_morph_dict[1].shape[0]
         ht1 = int(ntrials1/2)
         sort_trials_1 = np.random.permutation(ntrials1)
         arr1= C_morph_dict[1][:,:,masks[1]]
         arr1 = arr1[sort_trials_1[:ht1],:,:]
         sort1 = getSort(arr1)
+
+        _arr1 = np.copy(arr1)
+        _arr1[np.isnan(arr1)]=0.
+        norm1= np.amax(np.nanmean(_arr1,axis=0),axis=0)
 
 
     else:
@@ -428,14 +438,22 @@ def plot_placecells(C_morph_dict,masks,cv_sort=True):
             fr_n0 = np.squeeze(np.nanmean(C_morph_dict[m],axis=0))
             fr_n1 = np.squeeze(np.nanmean(C_morph_dict[m],axis=0))
 
-
-        for j in range(fr_n0.shape[1]):
-            fr_n0[:,j] = gaussian_filter1d(fr_n0[:,j]/fr_n0[:,j].max(),2)
-            fr_n1[:,j] = gaussian_filter1d(fr_n1[:,j]/fr_n1[:,j].max(),2)
-            #fr_n[:,j] = gaussian_filter1d(fr[:,j],2)
         fr_n0, fr_n1 = fr_n0[:,masks[0]], fr_n1[:,masks[1]]
-        fr_n0, fr_n1 = fr_n0[:,sort0], fr_n1[:,sort1]
-        ax[0,i].imshow(fr_n0.T,aspect='auto',cmap='magma')
-        ax[1,i].imshow(fr_n1.T,aspect='auto',cmap='magma')
+        fr_n0= gaussian_filter1d(fr_n0/norm0,2,axis=0)
+        fr_n1 = gaussian_filter1d(fr_n1/norm1,2,axis=0)
+        # for j in range(fr_n0.shape[1]):
+            # fr_n0[:,j] = gaussian_filter1d(fr_n0[:,j]/norm0,2) #/fr_n0[:,j].mean(),2)
+            # fr_n1[:,j] = gaussian_filter1d(fr_n1[:,j]/norm1,2) #/fr_n1[:,j].mean(),2)
+            #fr_n[:,j] = gaussian_filter1d(fr[:,j],2)
 
-    return f, ax
+        fr_n0, fr_n1 = fr_n0[:,sort0], fr_n1[:,sort1]
+
+        PC_dict[0][m], PC_dict[1][m]= fr_n0.T, fr_n1.T
+        if plot:
+            ax[0,i].imshow(fr_n0.T,aspect='auto',cmap='pink',vmin=0.2,vmax=.9)
+            ax[1,i].imshow(fr_n1.T,aspect='auto',cmap='pink',vmin=0.2,vmax=.9)
+
+    if plot:
+        return f, ax, PC_dict
+    else:
+        return PC_dict
