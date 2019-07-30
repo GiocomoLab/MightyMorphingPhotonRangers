@@ -390,6 +390,7 @@ def plot_placecells(C_morph_dict,masks,cv_sort=True, plot = True):
     morphs = [k for k in C_morph_dict.keys() if isinstance(k,np.float64)]
     if plot:
         f,ax = plt.subplots(2,len(morphs),figsize=[5*len(morphs),15])
+        f.subplots_adjust(wspace=.01,hspace=.05)
 
     getSort = lambda fr : np.argsort(np.argmax(np.squeeze(np.nanmean(fr,axis=0)),axis=0))
     PC_dict = {}
@@ -452,6 +453,11 @@ def plot_placecells(C_morph_dict,masks,cv_sort=True, plot = True):
         if plot:
             ax[0,i].imshow(fr_n0.T,aspect='auto',cmap='pink',vmin=0.2,vmax=.9)
             ax[1,i].imshow(fr_n1.T,aspect='auto',cmap='pink',vmin=0.2,vmax=.9)
+            if i>0:
+                ax[0,i].set_yticks([])
+                ax[1,i].set_yticks([])
+            ax[0,i].set_xticks([])
+            ax[1,i].set_xticks([])
 
     if plot:
         return f, ax, PC_dict

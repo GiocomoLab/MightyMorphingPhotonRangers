@@ -65,7 +65,7 @@ def build_matrix(df, mouse_list,first_sess=5):
     return cellmat
 
 
-def plot_factors(results,rank,ndim):
+def plot_factors(results,rank,ndim,downsample=1):
 
     H = np.zeros([rank,ndim,ndim])
     ui = np.triu_indices(ndim,k=1)
@@ -75,18 +75,31 @@ def plot_factors(results,rank,ndim):
     W = results[rank]['factors'][0][0]
     wmax = np.amax(W.ravel())
 
+    Wmask = np.zeros([W.shape[0],])
+    rinds = np.random.permutation(W.shape[0])
+    Wmask[rinds[:int(W.shape[0]*downsample)]]=1.
+
+    _W = W[Wmask>0,:]
+
 
     f,ax = plt.subplots(rank,rank+1,figsize=[5*(rank+1),rank*5])
     for j in range(rank):
         _H = H[j,:,:]
         _H[np.diag_indices_from(_H)]=np.nan
-        ax[j,0].imshow(_H,cmap='cividis')
-        for k in range(1,rank+1):
-            ksort = np.argsort(W[:,k-1])
-            ax[j,k].scatter(np.arange(W.shape[0]),W[ksort,j])
-            ax[j,k].set_ylim([-.1,wmax+.05])
+        if rank<2:
+            ax[0].imshow(_H,cmap='cividis')
+            ax[1].scatter(np.arange(_W.shape[0]),_W.ravel())
+        else:
+            ax[j,0].imshow(_H,cmap='cividis')
+            for k in range(1,rank+1):
+                ksort = np.argsort(_W[:,k-1])
+                ax[j,k].scatter(np.arange(_W.shape[0]),_W[ksort,j])
+                ax[j,k].set_ylim([-.1,wmax+.05])
 
     return f,ax
+
+
+
 
 
 def sort_matrix_by_columns(W):
