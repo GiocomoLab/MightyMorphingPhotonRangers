@@ -50,7 +50,7 @@ def single_session(sess, savefigs = False,fbase=None,deconv=False,
                         morphlist=morphlist)
 
     # plot place cells by morph
-    f_pc, ax_pc = plot_placecells(C_morph_dict,masks)
+    f_pc, ax_pc,dict = plot_placecells(C_morph_dict,masks)
 
     ########################################################
     # number in each environment
@@ -79,9 +79,9 @@ def single_session(sess, savefigs = False,fbase=None,deconv=False,
     # mvl[1] = meanvectorlength(FR[1]['all'])
 
     # reward cell scatter plot
-    FR_0_cpc = FR[0]['all'][:,common_pc]
-    FR_1_cpc = FR[1]['all'][:,common_pc]
-    f_rc, ax_rc = reward_cell_scatterplot(FR_0_cpc,FR_1_cpc)
+    # FR_0_cpc = FR[0]['all'][:,common_pc]
+    # FR_1_cpc = FR[1]['all'][:,common_pc]
+    # f_rc, ax_rc = reward_cell_scatterplot(FR_0_cpc,FR_1_cpc)
 
     # cell's topography
     # # place cell in which morph
