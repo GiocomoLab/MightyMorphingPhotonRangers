@@ -34,7 +34,9 @@ def plot_trial_simmat(C,trial_info,vmax=None,morphcm='cool'):
     '''plot similarity matrices comparing each trial'''
 
     if vmax is None:
+        # vmax=.3
         vmax = np.percentile(C.ravel(),90)
+        # vmin=.0
         vmin = np.percentile(C.ravel(),10)
 
 

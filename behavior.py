@@ -82,17 +82,17 @@ def lick_plot_task(d,bin_edges,rzone0=(250.,315),rzone1=(350,415),smooth=True,ra
 
 
     ax = f.add_subplot(gs[0:-1,0:-1])
-    ax.axvspan(rzone0[0],rzone0[1],alpha=.2,color=plt.cm.cool(np.float(0)),zorder=0)
-    ax.axvspan(rzone1[0],rzone1[1],alpha=.2,color=plt.cm.cool(np.float(1)),zorder=0)
+    ax.axvspan(rzone0[0],rzone0[1],alpha=.2,color=plt.cm.cool(np.float(1)),zorder=0)
+    ax.axvspan(rzone1[0],rzone1[1],alpha=.2,color=plt.cm.cool(np.float(0)),zorder=0)
     ax = u.smooth_raster(bin_edges[:-1],d['all'],vals=d['labels'],ax=ax,smooth=smooth,tports=max_pos)
     ax.set_ylabel('Trial',size='xx-large')
 
 
     meanlr_ax = f.add_subplot(gs[-1,:-1])
-    meanlr_ax.axvspan(rzone0[0],rzone0[1],alpha=.2,color=plt.cm.cool(np.float(0)),zorder=0)
-    meanlr_ax.axvspan(rzone1[0],rzone1[1],alpha=.2,color=plt.cm.cool(np.float(1)),zorder=0)
+    meanlr_ax.axvspan(rzone0[0],rzone0[1],alpha=.2,color=plt.cm.cool(np.float(1)),zorder=0)
+    meanlr_ax.axvspan(rzone1[0],rzone1[1],alpha=.2,color=plt.cm.cool(np.float(0)),zorder=0)
     for i, m in enumerate(np.unique(d['labels'])):
-        meanlr_ax.plot(bin_edges[:-1],np.nanmean(d[m],axis=0),color=plt.cm.cool(np.float(m)))
+        meanlr_ax.plot(bin_edges[:-1],np.nanmean(d[m],axis=0),color=plt.cm.cool(1-np.float(m)))
     meanlr_ax.set_ylabel('Licks/sec',size='xx-large')
     meanlr_ax.set_xlabel('Position (cm)',size='xx-large')
 
@@ -204,3 +204,14 @@ def behavior_raster_foraging(lick_mat,centers,morphs,reward_pos,smooth=True, max
 
 
     return f, axarr
+
+
+def ant_speed_v_lick(lick_mat,speed_mat,centers,morphs):
+    ''''''
+
+    f,ax = plt.subplots()
+
+    mask = (centers>=200) & (centers<=250)
+
+    ax.scatter(lick_mat[:,mask].sum(axis=1),speed_mat[:,mask].mean(axis=1),c=1-morphs,cmap='cool')
+    return f,ax

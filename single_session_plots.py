@@ -50,7 +50,9 @@ def single_session_figs(sess,dir = "G:\\My Drive\\Figures\\TwoTower\\SingleSessi
     S/=1546
     S[np.isnan(S)]=0.
     C[np.isnan(C)]=0.
-    C/=1546
+    # S=C
+    # C/=1546
+    print("neg inds:", (A<0).ravel().sum())
     # S /= np.nanmean(S,axis=0)[np.newaxis,:]
     # get trial by trial info
     trial_info, tstart_inds, teleport_inds = u.by_trial_info(VRDat)
@@ -177,6 +179,7 @@ def single_session_figs(sess,dir = "G:\\My Drive\\Figures\\TwoTower\\SingleSessi
         S_tmat = np.reshape(S_trial_mat,[S_trial_mat.shape[0],-1])
         S_tmat = S_tmat/np.linalg.norm(S_tmat,ord=2,axis=-1)[:,np.newaxis]
         S_t_rmat = np.matmul(S_tmat,S_tmat.T)
+        print("negative similarity inds:", (S_t_rmat<0).ravel().sum())
 
         f_stsm,axtup_stsm = sm.plot_trial_simmat(S_t_rmat,trial_info)
 
@@ -334,7 +337,7 @@ def single_session_figs(sess,dir = "G:\\My Drive\\Figures\\TwoTower\\SingleSessi
         trialmask = trialmask>0.
         trialmask[:5]=False
 
-        results = nmf.fit_ensemble(S_tmat[trialmask,:],np.arange(1,11),n_replicates=5)
+        results = nmf.fit_ensemble(S_tmat,np.arange(1,11),n_replicates=5)
         f_ens,ax_ens = plt.subplots()
         ensemble_plots.plot_rmse(results,ax=ax_ens)
 

@@ -59,7 +59,7 @@ def nansmooth(A,sig):
     One = filters.gaussian_filter(One,sig)
     return A_nanless/One
 
-def df(C,ops={'sig_baseline':10,'win_baseline':300,'sig_output':10,'method':'maximin'}):
+def df(C,ops={'sig_baseline':10,'win_baseline':300,'sig_output':3,'method':'maximin'}):
     '''delta F / F'''
     if ops['method']=='maximin':
         Flow = filters.gaussian_filter(C,    [ops['sig_baseline'], 0])
@@ -69,6 +69,7 @@ def df(C,ops={'sig_baseline':10,'win_baseline':300,'sig_output':10,'method':'max
         pass
 
     C-=Flow
+    C/=Flow
     return filters.gaussian_filter(C,[ops['sig_output'],0])
 
 

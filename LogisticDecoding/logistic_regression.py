@@ -15,13 +15,14 @@ import matplotlib.gridspec as gridspec
 
 def single_session(sess,smooth=True):
     VRDat,C, S, A = pp.load_scan_sess(sess)
+    S/=1546
     C/=1546
     trial_info, tstart_inds, teleport_inds = u.by_trial_info(VRDat)
-    S_trial_mat, occ_trial_mat, edges,centers = u.make_pos_bin_trial_matrices(S,VRDat['pos']._values,VRDat['tstart']._values,VRDat['teleport']._values)
+    S_trial_mat, occ_trial_mat, edges,centers = u.make_pos_bin_trial_matrices(S,VRDat['pos']._values,VRDat['tstart']._values,VRDat['teleport']._values,bin_size=20)
     if smooth:
-        pass
-        #S = sp.ndimage.filters.gaussian_filter1d(C,3,axis=0)
-    Cz = sp.stats.zscore(C,axis=1)
+        # pass
+        S = sp.ndimage.filters.gaussian_filter1d(C,3,axis=0)
+    # Cz = sp.stats.zscore(C,axis=1)
     bin_edges= np.arange(0,451,20)
     bin_edges[-1]=455
     nbins = bin_edges.shape[0]-1
@@ -29,7 +30,7 @@ def single_session(sess,smooth=True):
 
     train_mask = pos_mask & ((VRDat.morph==1) | (VRDat.morph==0.))
 
-    # lr = LogisticRegression(C=.001,penalty='l2',class_weight="balanced",multi_class='multinomial',solver='lbfgs')
+
     lr = LogisticRegressionCV(Cs=5,penalty='l2',class_weight="balanced",multi_class='multinomial')
     X = np.digitize(VRDat.pos._values,bin_edges)+nbins*VRDat.morph._values*pos_mask
     X-=1
@@ -40,10 +41,10 @@ def single_session(sess,smooth=True):
     # tstart_train,teleport_train=tstart_inds[train_trials],teleport_inds[train_trials]
     # for i,(start,stop) in enumerate(zip(tstart_train.tolist(),teleport_train.tolist())):
     #     for j in range(train.shape[1]):
-    #         if i%5 == j:
-    #             pass
-    #         else:
-    #             train[start:stop,j]+=1
+    #         # if i%5 == j:
+    # #             pass
+    # #         else:
+    #         train[start:stop,j]+=1
     # train=train>0
     #
     # for j in range(train.shape[1]):
@@ -53,14 +54,14 @@ def single_session(sess,smooth=True):
     #     lr.fit(Cz[ttrain,:],X[ttrain])
     #     Xhat[test,:]=lr.predict_proba(Cz[test,:])
 
-    # LOO = u.LOTrialO(tstart_inds[train_trials],teleport_inds[train_trials],S.shape[0])
-    # for i,(train,test) in enumerate(LOO):
-    #     ttrain = train & pos_mask
-    #     lr.fit(Cz[ttrain,:],X[ttrain])
-    #     Xhat[test,:]=lr.predict_proba(Cz[test,:])
+    LOO = u.LOTrialO(tstart_inds[train_trials],teleport_inds[train_trials],S.shape[0])
+    for i,(train,test) in enumerate(LOO):
+        ttrain = train & pos_mask
+        lr.fit(S[ttrain,:],X[ttrain])
+        Xhat[test,:]=lr.predict_proba(S[test,:])
 
-    lr.fit(Cz[train_mask,:],np.digitize(VRDat.pos._values[train_mask],bin_edges)+(bin_edges.shape[0]-1)*VRDat.morph._values[train_mask])
-    Xhat=lr.predict_proba(Cz[:,:])
+    lr.fit(S[train_mask,:],np.digitize(VRDat.pos._values[train_mask],bin_edges)+(bin_edges.shape[0]-1)*VRDat.morph._values[train_mask])
+    Xhat[~train_mask,:]=lr.predict_proba(S[~train_mask,:])
     return Xhat
 
 def single_session_multicontext(sess,smooth=True):
@@ -257,8 +258,9 @@ def plot_llr(llr_pos,effMorph,save=False,centers = None,nbins=5):
 
 def run_all():
 
-    mice = ['4139265.3','4139265.4','4139265.5','4222153.1', '4222153.2', '4222154.1',
-            '4222157.3','4222174.1','4222175.0','4222157.4','4139278.2', '4139266.3',
+    mice = ['4139265.3','4139265.4','4139265.5','4222153.1', '4222153.2', '4222153.3',
+            '4222174.1', '4222157.4','4222169.1','4222169.2','4222169.4',
+            '4222154.1','4222157.3','4139278.2', '4139266.3',
             '4139224.2', '4139224.3','4139224.5','4139251.1','4139260.1','4139261.2']
 
     df = pp.load_session_db()
@@ -273,7 +275,7 @@ def run_all():
             df_mouse = df[df['MouseName'].str.match(mouse)]
             for i in range(2,df_mouse.shape[0]):
                 sess = df_mouse.iloc[i]
-                dirbase = os.path.join("G:\\My Drive\\Figures\\TwoTower\\LogReg_corrK",mouse)
+                dirbase = os.path.join("G:\\My Drive\\Figures\\TwoTower\\LogReg_smooth",mouse)
 
                 try:
                     os.makedirs(dirbase)

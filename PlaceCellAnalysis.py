@@ -27,7 +27,7 @@ def single_session(sess, savefigs = False,fbase=None,deconv=False,
     if deconv:
         C=S
     else:
-        C = u.df(C)
+        pass
 
     # get trial by trial info
     trial_info, tstart_inds, teleport_inds = u.by_trial_info(VRDat)
@@ -79,9 +79,9 @@ def single_session(sess, savefigs = False,fbase=None,deconv=False,
     # mvl[1] = meanvectorlength(FR[1]['all'])
 
     # reward cell scatter plot
-    # FR_0_cpc = FR[0]['all'][:,common_pc]
-    # FR_1_cpc = FR[1]['all'][:,common_pc]
-    # f_rc, ax_rc = reward_cell_scatterplot(FR_0_cpc,FR_1_cpc)
+    FR_0_cpc = FR[0]['all'][:,common_pc]
+    FR_1_cpc = FR[1]['all'][:,common_pc]
+    f_rc, ax_rc = reward_cell_scatterplot(FR_0_cpc,FR_1_cpc)
 
     # cell's topography
     # # place cell in which morph
@@ -241,7 +241,7 @@ def spatial_info(frmap,occupancy):
     SI = []
     ### vectorizing
     P_map = frmap - np.amin(frmap)+.001
-    P_map = gaussian_filter(P_map,[3,0])
+    # P_map = gaussian_filter(P_map,[3,0])
     P_map = P_map/P_map.sum(axis=0)
     arg = P_map*occupancy[:,np.newaxis]
     denom = arg.sum(axis=0)
