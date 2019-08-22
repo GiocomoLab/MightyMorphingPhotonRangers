@@ -24,7 +24,8 @@ def set_ops(change_ops={}):
         'place cells':True,
         'trial simmats':True,
         'trial NMF': True,
-        'savefigs':True}
+        'savefigs':True,
+        'realtime lar':True}
     for k,v in change_ops.items():
         ops[k]=v
     return ops
@@ -64,7 +65,7 @@ def single_session_figs(sess,dir = "G:\\My Drive\\Figures\\TwoTower\\SingleSessi
     S_morph_dict = u.trial_type_dict(S_trial_mat,trial_info['morphs'])
     occ_morph_dict = u.trial_type_dict(occ_trial_mat,trial_info['morphs'])
 
-    effMorph = (trial_info['morphs']+trial_info['wallJitter']+trial_info['bckgndJitter']+.25)/1.5
+    effMorph = (trial_info['morphs']+trial_info['wallJitter']+trial_info['bckgndJitter']+.3)/1.6
     reward_pos = trial_info['reward_pos']
     reward_pos[np.isnan(reward_pos)]= 480
 
@@ -246,6 +247,40 @@ def single_session_figs(sess,dir = "G:\\My Drive\\Figures\\TwoTower\\SingleSessi
             f_embed.savefig(os.path.join(outdir,'simmat_embed.pdf'),format='pdf')
             f_se.savefig(os.path.join(outdir,'simmat_spectembed.pdf'),format='pdf')
             f_lar.savefig(os.path.join(outdir,'lar.pdf'),format='pdf')
+
+    if ops['realtime lar']:
+        if ops['trial simmats']:
+            pass
+        else:
+            S_trial_mat = sp.ndimage.filters.gaussian_filter1d(S_trial_mat,1,axis=1)
+
+        lr_bin = np.zeros(S_trial_mat.shape[:-1])
+        S_tmat_norm = S_trial_mat/np.linalg.norm(S_trial_mat,2,axis=-1)[:,:,np.newaxis]
+        for trial in range(S_trial_mat.shape[0]):
+            mask0 = trial_info['morphs']==0
+            mask1 = trial_info['morphs']==1
+            if trial_info['morphs'][trial]==0:
+                mask0[trial]=False
+            elif trial_info['morphs'][trial]==1:
+                mask1[trial]=False
+
+
+            centroid_0 = S_trial_mat[mask0,:,:].mean(axis=0)
+            centroid_0/=np.linalg.norm(centroid_0,2,axis=-1)[:,np.newaxis]
+
+            centroid_1 = S_trial_mat[mask1,:,:].mean(axis=0)
+            centroid_1/=np.linalg.norm(centroid_1,2,axis=-1)[:,np.newaxis]
+
+            angle0 = np.diagonal(np.matmul(S_tmat_norm[trial,:,:],centroid_0.T))
+            angle1 = np.diagonal(np.matmul(S_tmat_norm[trial,:,:],centroid_1.T))
+            lr_bin[trial,:]=np.log(angle1/angle0)
+
+        f_rtlar,ax_rtlar = plt.subplots()
+        for t in range(lr_bin.shape[0]):
+            ax_rtlar.plot(-lr_bin[t,:],c=plt.cm.cool(1-effMorph[t]),alpha=.3)
+
+        if ops['savefigs']:
+            f_rtlar.savefig(os.path.join(outdir,'rt_lar.pdf'),format='pdf')
 
 
     if ops['trial simmats'] and ops['place cells']:
