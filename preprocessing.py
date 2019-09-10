@@ -223,10 +223,12 @@ def _VR_align_to_2P(vr_dframe,infofile, n_imaging_planes = 1):
         print('one frame correction')
         ca_time = ca_time[:-1] #np.append(ca_time,ca_time[-1]+1/fr)
     print(info['max_idx'],ca_time.shape,ca_df.shape,numVRFrames)
+
     ca_df.loc[:,'time'] = ca_time
     mask = ca_time>=ttl_times[0]
 
     vr_dframe = vr_dframe.iloc[-numVRFrames:]
+    print(ttl_times.shape,vr_dframe.shape)
     f_mean = sp.interpolate.interp1d(ttl_times,vr_dframe['pos']._values,axis=0,kind='slinear')
     # f_mean = sp.interpolate.interp1d(vr_time,vr_dframe['pos']._values,axis=0,kind='slinear')
     ca_df.loc[mask,'pos'] = f_mean(ca_time[mask])

@@ -51,11 +51,20 @@ def sim_triu(sess, binned = True,norm=True):
         return S_sim[ui[0],ui[1],:].T, effMorph[msort]
 
 
-def build_matrix(df, mouse_list,first_sess=5):
-    for m, mouse in enumerate(mouse_list):
+def build_matrix(df, mouse_list,first_sess=None):
+
+    if first_sess is None:
+        first_sess = len(mouse_list)*[5]
+    elif isinstance(first_sess,int):
+        first_sess = len(mouse_list)*[first_sess]
+    else:
+        pass
+
+
+    for m, (mouse,_first_sess) in enumerate(zip(mouse_list,first_sess)):
         print(mouse)
         df_mouse = df[df['MouseName'].str.match(mouse)]
-        for i, sess_ind in enumerate(range(first_sess,df_mouse.shape[0])):
+        for i, sess_ind in enumerate(range(_first_sess,df_mouse.shape[0])):
             vec = sim_triu(df_mouse.iloc[sess_ind])
             if (m==0) and (i==0):
                 cellmat = vec
