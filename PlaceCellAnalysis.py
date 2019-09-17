@@ -252,7 +252,7 @@ def spatial_info(frmap,occupancy):
 
 
 def place_cells_calc(C, position, trial_info, tstart_inds,
-                teleport_inds,method="all",pthr = .95,correct_only=False,
+                teleport_inds,method="all",pthr = .99,correct_only=False,
                 speed=None,win_trial_perm=False,morphlist = [0,1]):
     '''get masks for significant place cells that have significant place info
     in both even and odd trials'''
@@ -302,10 +302,10 @@ def place_cells_calc(C, position, trial_info, tstart_inds,
 
             p_e, shuffled_SI = spatial_info_perm_test(SI[m]['even'],C,position,
                                     tstart_morph_dict[m][1::2],teleport_morph_dict[m][1::2],
-                                    nperms=100,win_trial=win_trial_perm)
+                                    nperms=1000,win_trial=win_trial_perm)
             p_o, shuffled_SI = spatial_info_perm_test(SI[m]['odd'],C,position,
                                     tstart_morph_dict[m][0::2],teleport_morph_dict[m][0::2],
-                                    nperms = 100,win_trial=win_trial_perm ) #,shuffled_SI=shuffled_SI)
+                                    nperms = 1000,win_trial=win_trial_perm ) #,shuffled_SI=shuffled_SI)
 
 
             masks[m]=np.multiply(p_e>pthr,p_o>pthr)
@@ -346,7 +346,7 @@ def place_cells_calc(C, position, trial_info, tstart_inds,
         else:
             p_all, shuffled_SI = spatial_info_perm_test(SI[m]['all'],C,position,
                                     tstart_morph_dict[m],teleport_morph_dict[m],
-                                    nperms=100,win_trial=win_trial_perm)
+                                    nperms=1000,win_trial=win_trial_perm)
             masks[m] = p_all>pthr
 
     return masks, FR, SI

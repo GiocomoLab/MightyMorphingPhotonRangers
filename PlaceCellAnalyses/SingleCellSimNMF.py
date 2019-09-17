@@ -14,10 +14,10 @@ import plots
 
 
 
-def run_ensemble(ss_flat):
+def run_ensemble(ss_flat,maxfactors = 10):
     '''run ensemble on single session'''
 
-    results = ensemble.fit_ensemble_cv(ss_flat, np.arange(1,10),n_replicates=3)
+    results = ensemble.fit_ensemble_cv(ss_flat, np.arange(1,maxfactors),n_replicates=3)
     f,ax = plt.subplots()
     ax = plots.plot_rmse(results,plot_svd=False)
 

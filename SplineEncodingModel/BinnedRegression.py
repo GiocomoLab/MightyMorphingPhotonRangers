@@ -27,7 +27,7 @@ class EncodingModel:
 
     def _1d_bin(self,vec,nbins):
         edges = np.linspace(0,np.amax(vec),num=nbins+1):
-
+        return
 
 
     def make_design_matrix(self,pos,morph):

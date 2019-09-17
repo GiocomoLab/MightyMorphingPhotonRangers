@@ -74,7 +74,7 @@ def df(C,ops={'sig_baseline':10,'win_baseline':300,'sig_output':3,'method':'maxi
 
 
 
-def make_spline_basis(x,knots=np.arange(-.2,1,.34)):
+def make_spline_basis(x,knots=np.arange(0,1,.2)):
     '''make cubic spline basis functions'''
     knotfunc = lambda k: np.power(np.multiply(x-k,(x-k)>0),3)
     spline_basis_list = [knotfunc(k) for k in knots.tolist()]
