@@ -17,6 +17,14 @@ import os.path
 from astropy.convolution import convolve, Gaussian1DKernel
 
 
+def _first_sess_gen(mlist,fs, default_first = 5):
+    if fs is None:
+        return len(mlist)*[default_first]
+    elif isinstance(fs,int):
+        return len(mlist)*[fs]
+    else:
+        return fs
+
 class LOTrialO:
     '''generator for leave-one-trial-out cross-validation'''
     def __init__(self,starts,stops,N):
