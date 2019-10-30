@@ -48,7 +48,8 @@ def single_session_figs(sess,dir = "G:\\My Drive\\Figures\\TwoTower\\SingleSessi
 
     VRDat, C, S, A = pp.load_scan_sess(sess,fneu_coeff=.7,analysis='s2p')
 
-    S/=1546
+    # S/=1546
+    S = S/np.percentile(S,95,axis=0)[np.newaxis,:]
     S[np.isnan(S)]=0.
     C[np.isnan(C)]=0.
     # S=C
@@ -197,7 +198,9 @@ def single_session_figs(sess,dir = "G:\\My Drive\\Figures\\TwoTower\\SingleSessi
             centroid0/np.linalg.norm(centroid0,ord=2)
             centroid1/np.linalg.norm(centroid1,ord=2)
 
-            lar[trial]= np.log(np.dot(S_tmat[trial,:],centroid0)/np.dot(S_tmat[trial,:],centroid1))
+            angle0,angle1 = np.dot(S_tmat[trial,:],centroid0),np.dot(S_tmat[trial,:],centroid1)
+            lar[trial] = angle0/(angle0+angle1)
+            # lar[trial]= np.log(np.dot(S_tmat[trial,:],centroid0)/np.dot(S_tmat[trial,:],centroid1))
 
         f_lar,ax_lar = plt.subplots()
         ax_lar.scatter(effMorph,lar,c=1-effMorph,cmap='cool')
@@ -273,7 +276,8 @@ def single_session_figs(sess,dir = "G:\\My Drive\\Figures\\TwoTower\\SingleSessi
 
             angle0 = np.diagonal(np.matmul(S_tmat_norm[trial,:,:],centroid_0.T))
             angle1 = np.diagonal(np.matmul(S_tmat_norm[trial,:,:],centroid_1.T))
-            lr_bin[trial,:]=np.log(angle1/angle0)
+            lr_bin[trial,:]=angle0/(angle1+angle0)
+            # lr_bin[trial,:]=np.log(angle1/angle0)
 
         f_rtlar,ax_rtlar = plt.subplots()
         for t in range(lr_bin.shape[0]):
