@@ -45,11 +45,11 @@ def single_session_figs(sess,dir = "G:\\My Drive\\Figures\\TwoTower\\SingleSessi
             print("failed to make path",outdir)
 
 
-
+    # load everything up
     VRDat, C, S, A = pp.load_scan_sess(sess,fneu_coeff=.7,analysis='s2p')
 
-    # S/=1546
-    S = S/np.percentile(S,95,axis=0)[np.newaxis,:]
+    S/=1546
+    # S = S/np.percentile(S,95,axis=0)[np.newaxis,:]
     S[np.isnan(S)]=0.
     C[np.isnan(C)]=0.
     # S=C
@@ -281,7 +281,7 @@ def single_session_figs(sess,dir = "G:\\My Drive\\Figures\\TwoTower\\SingleSessi
 
         f_rtlar,ax_rtlar = plt.subplots()
         for t in range(lr_bin.shape[0]):
-            ax_rtlar.plot(-lr_bin[t,:],c=plt.cm.cool(1-effMorph[t]),alpha=.3)
+            ax_rtlar.plot(lr_bin[t,:],c=plt.cm.cool(1-effMorph[t]),alpha=.3)
 
         if ops['savefigs']:
             f_rtlar.savefig(os.path.join(outdir,'rt_lar.pdf'),format='pdf')
