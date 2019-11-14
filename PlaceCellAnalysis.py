@@ -242,10 +242,11 @@ def spatial_info(frmap,occupancy):
     ### vectorizing
     P_map = frmap - np.amin(frmap)+.001
     # P_map = gaussian_filter(P_map,[3,0])
-    P_map = P_map/P_map.sum(axis=0)
+    P_map = P_map/P_map.mean(axis=0)
     arg = P_map*occupancy[:,np.newaxis]
     denom = arg.sum(axis=0)
-    SI = (arg*np.log2(P_map/denom)).sum(axis=0)
+    # SI = (arg*np.log2(P_map/denom)).sum(axis=0)
+    SI = (arg*np.log2(P_map)).sum(axis=0)
     # SI = (P_map*occupancy[:,np.newaxis]*np.log2(P_map)).sum(axis=0)
     return SI
 

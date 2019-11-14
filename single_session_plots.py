@@ -66,7 +66,7 @@ def single_session_figs(sess,dir = "G:\\My Drive\\Figures\\TwoTower\\SingleSessi
     S_morph_dict = u.trial_type_dict(S_trial_mat,trial_info['morphs'])
     occ_morph_dict = u.trial_type_dict(occ_trial_mat,trial_info['morphs'])
 
-    effMorph = (trial_info['morphs']+trial_info['wallJitter']+trial_info['bckgndJitter']+.3)/1.6
+    effMorph = (trial_info['morphs']+trial_info['wallJitter']+trial_info['bckgndJitter']+trial_info['towerJitter'])/1.6+.3
     reward_pos = trial_info['reward_pos']
     reward_pos[np.isnan(reward_pos)]= 480
 
