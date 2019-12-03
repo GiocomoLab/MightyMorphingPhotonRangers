@@ -292,10 +292,10 @@ def _VR_interp(frame):
     f_nearest = sp.interpolate.interp1d(vr_time,frame[near_list]._values,axis=0,kind='nearest')
     ca_df[near_list] = f_nearest(ca_time)
 
-    cumsum_list = ['dz','lick','reward','tstart','teleport']
+    cumsum_list = ['dz','lick','reward','tstart','teleport','rzone']
 
     f_cumsum = sp.interpolate.interp1d(vr_time,np.cumsum(frame[cumsum_list]._values,axis=0),axis=0,kind='slinear')
-    ca_cumsum = np.round(np.insert(f_cumsum(ca_time),0,[0,0, 0 ,0,0],axis=0))
+    ca_cumsum = np.round(np.insert(f_cumsum(ca_time),0,[0,0, 0 ,0,0,0],axis=0))
     if ca_cumsum[-1,-1]<ca_cumsum[-1,-2]:
         ca_cumsum[-1,-1]+=1
 

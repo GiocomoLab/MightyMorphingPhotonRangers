@@ -211,6 +211,47 @@ def reward_cell_scatterplot(fr0, fr1, rzone0 = [250,315], rzone1 = [350,415],tma
 
     return f, ax
 
+
+def common_cell_remap_scatterplot(fr0, fr1, rzone = [225,400], tmax= 450,bin_size=10.,norm = True):
+    f = plt.figure(figsize=[10,10])
+    gs = gridspec.GridSpec(5,5)
+    ax = f.add_subplot(gs[0:-1,0:-1])
+
+
+    heatmap = np.zeros([fr0.shape[0],fr1.shape[0]])
+    for cell in range(fr0.shape[1]):
+        heatmap[np.argmax(fr0[:,cell],axis=0),np.argmax(fr1[:,cell],axis=0)]+=1
+    # print(heatmap/np.amax(heatmap))
+    #f,ax = plt.subplots()
+    # ax.scatter(bin_size*np.argmax(fr0,axis=0),bin_size*np.argmax(fr1,axis=0),color='black')
+    if norm:
+        ax.imshow(heatmap.T/np.amax(heatmap),cmap='magma',vmin=0.05,vmax=.15)#,aspect='auto')
+    else:
+        ax.imshow(heatmap.T,cmap='magma',vmax=.7*np.amax(heatmap.ravel()))
+    # ax.plot(np.arange(tmax),np.arange(tmax),color='black')
+    # ax.fill_between(np.arange(tmax)/bin_size,rzone[0],y2=rzone[1],color='black',alpha=.2)
+    # ax.fill_betweenx(np.arange(tmax)/bin_size,rzone[0],x2=rzone[1],color='black',alpha=.2)
+
+
+    ax1 = f.add_subplot(gs[-1,0:-1],sharex=ax)
+    hist,edges = np.histogram(bin_size*np.argmax(fr0,axis=0),np.arange(0,tmax+10,10))
+    ax1.fill_between(np.linspace(0,45,num=edges.shape[0]-1)-.5,hist/hist.sum(),color=plt.cm.cool(1.))
+    ax1.set_xlim([-1,46])
+    # ax1.hist(bin_size*np.argmax(fr0,axis=0),np.arange(0,tmax+10,10))
+    ax1.fill_betweenx([0,.05],rzone[0]/bin_size,x2=rzone[1]/bin_size,color='black',alpha=.2)
+
+
+    ax2 = f.add_subplot(gs[0:-1,-1],sharey=ax)
+    hist,edges = np.histogram(bin_size*np.argmax(fr1,axis=0),np.arange(0,tmax+10,10))
+    ax2.fill_betweenx(np.linspace(0,45,num=edges.shape[0]-1)-.5,hist/hist.sum(),color=plt.cm.cool(0.))
+    ax2.set_ylim([-1,46])
+    # ax2.hist(bin_size*np.argmax(fr1,axis=0),np.arange(0,tmax+10,10),orientation='horizontal',color='black')
+    ax2.fill_between([0,.05],rzone[0]/bin_size,y2=rzone[1]/bin_size,color='black',alpha=.2)
+
+
+    return f, ax
+
+
 def stability_split_halves(trial_mat):
     '''calculate first half vs second half tuning curve correlation'''
 
@@ -441,6 +482,89 @@ def plot_placecells(C_morph_dict,masks,cv_sort=True, plot = True):
             fr_n1 = np.squeeze(np.nanmean(C_morph_dict[m],axis=0))
 
         fr_n0, fr_n1 = fr_n0[:,masks[0]], fr_n1[:,masks[1]]
+        fr_n0= gaussian_filter1d(fr_n0/norm0,2,axis=0)
+        fr_n1 = gaussian_filter1d(fr_n1/norm1,2,axis=0)
+        # for j in range(fr_n0.shape[1]):
+            # fr_n0[:,j] = gaussian_filter1d(fr_n0[:,j]/norm0,2) #/fr_n0[:,j].mean(),2)
+            # fr_n1[:,j] = gaussian_filter1d(fr_n1[:,j]/norm1,2) #/fr_n1[:,j].mean(),2)
+            #fr_n[:,j] = gaussian_filter1d(fr[:,j],2)
+
+        fr_n0, fr_n1 = fr_n0[:,sort0], fr_n1[:,sort1]
+
+        PC_dict[0][m], PC_dict[1][m]= fr_n0.T, fr_n1.T
+        if plot:
+            ax[0,i].imshow(fr_n0.T,aspect='auto',cmap='pink',vmin=0.2,vmax=.9)
+            ax[1,i].imshow(fr_n1.T,aspect='auto',cmap='pink',vmin=0.2,vmax=.9)
+            if i>0:
+                ax[0,i].set_yticks([])
+                ax[1,i].set_yticks([])
+            ax[0,i].set_xticks([])
+            ax[1,i].set_xticks([])
+
+    if plot:
+        return f, ax, PC_dict
+    else:
+        return PC_dict
+
+
+
+def plot_commonplacecells(C_morph_dict,masks,cv_sort=True, plot = True):
+    '''plot place place cell results'''
+
+    morphs = [k for k in C_morph_dict.keys() if isinstance(k,np.float64)]
+    mask = masks[0] & masks[1]
+    if plot:
+        f,ax = plt.subplots(2,len(morphs),figsize=[5*len(morphs),15])
+        f.subplots_adjust(wspace=.01,hspace=.05)
+
+    getSort = lambda fr : np.argsort(np.argmax(np.squeeze(np.nanmean(fr,axis=0)),axis=0))
+    PC_dict = {}
+    PC_dict[0],PC_dict[1] = {},{}
+    if cv_sort:
+        ntrials0 = C_morph_dict[0].shape[0]
+        sort_trials_0 = np.random.permutation(ntrials0)
+        ht0 = int(ntrials0/2)
+        arr0 = C_morph_dict[0][:,:,mask]
+        arr0 = arr0[sort_trials_0[:ht0],:,:]
+        sort0 = getSort(arr0)
+
+        _arr0 = np.copy(arr0)
+        _arr0[np.isnan(arr0)]=0.
+        norm0 = np.amax(np.nanmean(_arr0,axis=0),axis=0)
+
+        ntrials1 = C_morph_dict[1].shape[0]
+        ht1 = int(ntrials1/2)
+        sort_trials_1 = np.random.permutation(ntrials1)
+        arr1= C_morph_dict[1][:,:,mask]
+        arr1 = arr1[sort_trials_1[:ht1],:,:]
+        sort1 = getSort(arr1)
+
+        _arr1 = np.copy(arr1)
+        _arr1[np.isnan(arr1)]=0.
+        norm1= np.amax(np.nanmean(_arr1,axis=0),axis=0)
+
+
+    else:
+        sort0 = getSort(C_morph_dict[0][:,:,mask])
+        sort1 = getSort(C_morph_dict[1][:,:,mask])
+
+
+    for i,m in enumerate(morphs):
+        if cv_sort:
+            if m ==0:
+                fr_n0 = np.squeeze(np.nanmean(C_morph_dict[m][sort_trials_0[ht0:],:,:],axis=0))
+                fr_n1 = np.squeeze(np.nanmean(C_morph_dict[m],axis=0))
+            elif m==1:
+                fr_n1 = np.squeeze(np.nanmean(C_morph_dict[m][sort_trials_1[ht1:],:,:],axis=0))
+                fr_n0 = np.squeeze(np.nanmean(C_morph_dict[m],axis=0))
+            else:
+                fr_n0 = np.squeeze(np.nanmean(C_morph_dict[m],axis=0))
+                fr_n1 = np.squeeze(np.nanmean(C_morph_dict[m],axis=0))
+        else:
+            fr_n0 = np.squeeze(np.nanmean(C_morph_dict[m],axis=0))
+            fr_n1 = np.squeeze(np.nanmean(C_morph_dict[m],axis=0))
+
+        fr_n0, fr_n1 = fr_n0[:,mask], fr_n1[:,mask]
         fr_n0= gaussian_filter1d(fr_n0/norm0,2,axis=0)
         fr_n1 = gaussian_filter1d(fr_n1/norm1,2,axis=0)
         # for j in range(fr_n0.shape[1]):

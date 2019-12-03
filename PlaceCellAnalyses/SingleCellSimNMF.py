@@ -27,7 +27,7 @@ def run_ensemble(ss_flat,maxfactors = 10):
 def sim_triu(sess, binned = True,norm=True):
     VRDat, C, S, F = pp.load_scan_sess(sess)
     trial_info, tstart_inds, teleport_inds = u.by_trial_info(VRDat)
-    effMorph = (trial_info['morphs'] +  trial_info['wallJitter'] + trial_info['bckgndJitter'] + .3)/1.6
+    effMorph = (trial_info['morphs'] +  trial_info['wallJitter'] + trial_info['bckgndJitter'] + trial_info['towerJitter']+ .3)/1.6
     msort = np.argsort(effMorph)
 
 

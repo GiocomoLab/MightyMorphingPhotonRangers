@@ -322,9 +322,17 @@ def by_trial_info(data,rzone0=(250,315),rzone1=(350,415)):
 
                 reward_pos[i]=rpos._values[0]
 
-            rzone_poss = sub_frame['pos']._values[np.ediff1d(sub_frame['rzone']._values,to_end=0)>0]
-            if rzone_poss.size>0:
-                rzone_entry[i] =rzone_poss[0]
+
+                rzone_poss = sub_frame.loc[sub_frame['rzone']>0,'pos']
+                if rzone_poss.shape[0]>0:
+                    rzone_entry[i]=rzone_poss._values[0]
+                else:
+                    rzone_entry[i]=reward_pos[i]
+            # if rzone_poss.size>0:
+            #     print("rzone detected")
+            #     rzone_entry[i] =rzone_poss[0]
+            # else:
+            #     rzone_entry[i]=reward_pos[i]
 
             zone0_mask = (sub_frame.pos>=rzone0[0]) & (sub_frame.pos<=rzone0[1])
             zone1_mask = (sub_frame.pos>=rzone1[0]) & (sub_frame.pos<=rzone1[1])

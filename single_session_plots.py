@@ -33,7 +33,7 @@ def set_ops(change_ops={}):
 
 
 
-def single_session_figs(sess,dir = "G:\\My Drive\\Figures\\TwoTower\\SingleSession", ops={}):
+def single_session_figs(sess,dir = "G:\\My Drive\\Figures\\TwoTower\\SingleSession", ops={},twotower=False):
 
     ops = set_ops(ops)
     if ops['savefigs']:
@@ -66,8 +66,8 @@ def single_session_figs(sess,dir = "G:\\My Drive\\Figures\\TwoTower\\SingleSessi
     S_morph_dict = u.trial_type_dict(S_trial_mat,trial_info['morphs'])
     occ_morph_dict = u.trial_type_dict(occ_trial_mat,trial_info['morphs'])
 
-    effMorph = (trial_info['morphs']+trial_info['wallJitter']+trial_info['bckgndJitter']+trial_info['towerJitter'])/1.6+.3
-    reward_pos = trial_info['reward_pos']
+    effMorph = trial_info['morphs']+trial_info['wallJitter']+trial_info['bckgndJitter']+trial_info['towerJitter']#+.3)/1.6
+    reward_pos = trial_info['rzone_entry']
     reward_pos[np.isnan(reward_pos)]= 480
 
     if ops['behavior']:
@@ -110,10 +110,20 @@ def single_session_figs(sess,dir = "G:\\My Drive\\Figures\\TwoTower\\SingleSessi
         #         f_speed,ax_speed = b.plot_speed_task(centers,speed_morph_dict,trial_info['morphs'],
         #                                                 rzone1=(250.,315),rzone0=(350,415))
         # else:
-        f_lick, axarr_lick = b.behavior_raster_foraging(lick_trial_mat/np.nanmax(lick_trial_mat.ravel()),
-                                                centers,effMorph,reward_pos/480.,smooth=False)
-        f_speed,axarr_speed = b.behavior_raster_foraging(speed_trial_mat/np.nanmax(speed_trial_mat.ravel()),
-                                                centers,effMorph,reward_pos/480.,smooth=False)
+
+        if twotower:
+            f_lick, axarr_lick = b.behavior_raster_task(lick_trial_mat/np.nanmax(lick_trial_mat.ravel()),
+                                                    centers,effMorph,reward_pos/390.,smooth=False)
+
+            f_speed,axarr_speed = b.behavior_raster_task(speed_trial_mat/np.nanmax(speed_trial_mat.ravel()),
+                                                    centers,effMorph,reward_pos/390.,smooth=False)
+
+        else:
+            f_lick, axarr_lick = b.behavior_raster_foraging(lick_trial_mat/np.nanmax(lick_trial_mat.ravel()),
+                                                    centers,effMorph,reward_pos/390.,smooth=False)
+
+            f_speed,axarr_speed = b.behavior_raster_foraging(speed_trial_mat/np.nanmax(speed_trial_mat.ravel()),
+                                                    centers,effMorph,reward_pos/390.,smooth=False)
         if ops['savefigs']:
             f_lick.savefig(os.path.join(outdir,'licks.pdf'),format='pdf')
             f_speed.savefig(os.path.join(outdir,'speed.pdf'),format='pdf')
