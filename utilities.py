@@ -28,6 +28,7 @@ def _first_sess_gen(mlist,fs, default_first = 5):
 class LOTrialO:
     '''generator for leave-one-trial-out cross-validation'''
     def __init__(self,starts,stops,N):
+        '''inputs: starts - array of trial start indices '''
         self.train_mask = np.zeros([N,])
         self.test_mask = np.zeros([N,])
         self.c = 0
@@ -67,7 +68,7 @@ def nansmooth(A,sig):
     One = filters.gaussian_filter(One,sig)
     return A_nanless/One
 
-def df(C,ops={'sig_baseline':10,'win_baseline':300,'sig_output':3,'method':'maximin'}):
+def df(C,ops={'sig_baseline':10,'win_baseline':600,'sig_output':3,'method':'maximin'}):
     '''delta F / F'''
     if ops['method']=='maximin':
         Flow = filters.gaussian_filter(C,    [ops['sig_baseline'], 0])

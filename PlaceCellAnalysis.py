@@ -448,6 +448,7 @@ def plot_placecells(C_morph_dict,masks,cv_sort=True, plot = True):
         _arr0 = np.copy(arr0)
         _arr0[np.isnan(arr0)]=0.
         norm0 = np.amax(np.nanmean(_arr0,axis=0),axis=0)
+        base0 = np.amin(np.nanmean(_arr0,axis=0),axis=0)
 
         ntrials1 = C_morph_dict[1].shape[0]
         ht1 = int(ntrials1/2)
@@ -459,6 +460,7 @@ def plot_placecells(C_morph_dict,masks,cv_sort=True, plot = True):
         _arr1 = np.copy(arr1)
         _arr1[np.isnan(arr1)]=0.
         norm1= np.amax(np.nanmean(_arr1,axis=0),axis=0)
+        base1 = np.amin(np.nanmean(_arr1,axis=0),axis=0)
 
 
     else:
@@ -482,8 +484,8 @@ def plot_placecells(C_morph_dict,masks,cv_sort=True, plot = True):
             fr_n1 = np.squeeze(np.nanmean(C_morph_dict[m],axis=0))
 
         fr_n0, fr_n1 = fr_n0[:,masks[0]], fr_n1[:,masks[1]]
-        fr_n0= gaussian_filter1d(fr_n0/norm0,2,axis=0)
-        fr_n1 = gaussian_filter1d(fr_n1/norm1,2,axis=0)
+        fr_n0= gaussian_filter1d((fr_n0-base0)/norm0,2,axis=0)
+        fr_n1 = gaussian_filter1d((fr_n1-base1)/norm1,2,axis=0)
         # for j in range(fr_n0.shape[1]):
             # fr_n0[:,j] = gaussian_filter1d(fr_n0[:,j]/norm0,2) #/fr_n0[:,j].mean(),2)
             # fr_n1[:,j] = gaussian_filter1d(fr_n1[:,j]/norm1,2) #/fr_n1[:,j].mean(),2)

@@ -48,8 +48,8 @@ def single_session_figs(sess,dir = "G:\\My Drive\\Figures\\TwoTower\\SingleSessi
     # load everything up
     VRDat, C, S, A = pp.load_scan_sess(sess,fneu_coeff=.7,analysis='s2p')
 
-    S/=1546
-    # S = S/np.percentile(S,95,axis=0)[np.newaxis,:]
+    # S/=1546
+    S = S/np.percentile(S,95,axis=0)[np.newaxis,:]
     S[np.isnan(S)]=0.
     C[np.isnan(C)]=0.
     # S=C

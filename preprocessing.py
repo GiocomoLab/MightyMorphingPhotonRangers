@@ -35,9 +35,13 @@ def loadmat_sbx(filename):
     elif info['channels'] == 3:
         info['nChan'] = 1; factor = 2
 
+    if info['scanmode']==0:
+        info['recordsPerBuffer']*=2
+
      # Determine number of frames in whole file
     info['max_idx'] = int(os.path.getsize(filename[:-4] + '.sbx')/info['recordsPerBuffer']/info['sz'][1]*factor/4-1)
-    info['fr'] = info['resfreq']/info['recordsPerBuffer']
+    info['frame_rate']=info['resfreq']/info['config']['lines']*(2-info['scanmode'])
+
     return info
 
 def _check_keys(dict):
@@ -114,7 +118,7 @@ def load_scan_sess(sess,analysis='s2p',plane=0,fneu_coeff=.7):
     else:
         return
 
-def load_session_db(dir = "G:\\My Drive\\"):
+def load_session_db(dir = "G:\\My Drive\\",twop_dir = "G:\\My Drive\\2P_Data\\TwoTower"):
     '''open the sessions sqlite database and add some columns'''
 
     vr_fname = os.path.join(dir,"VR_Data","TwoTower","behavior.sqlite")
@@ -128,7 +132,7 @@ def load_session_db(dir = "G:\\My Drive\\"):
                                            df['Track'].iloc[i],
                                            df['SessionNumber'].iloc[i],serverDir=sdir) for i in range(df.shape[0])]
     choose_first, choose_second = lambda x: x[0], lambda x: x[1]
-    twop_dir = os.path.join(dir,"2P_Data","TwoTower")
+    # twop_dir = os.path.join(dir,"2P_Data","TwoTower")
 
     df['scanfile'] = [choose_first(build_2P_filename(df['MouseName'].iloc[i],
                                         df['DateFolder'].iloc[i],
@@ -147,6 +151,7 @@ def load_session_db(dir = "G:\\My Drive\\"):
 def build_s2p_folder(df,serverDir="G:\\My Drive\\2P_Data\\TwoTower\\"):
 
     res_folder = os.path.join(serverDir,df['MouseName'],df['DateFolder'],df['Track'],"%s_*%s_*" % (df['Track'],df['SessionNumber']),'suite2p')
+
     match= glob(res_folder)
     assert len(match)<2, "multiple matching subfolders"
     if len(match)<1:
@@ -194,7 +199,7 @@ def _VR_align_to_2P(vr_dframe,infofile, n_imaging_planes = 1):
     '''align behavior to 2P sample times using splines'''
 
     info = loadmat_sbx(infofile)
-    fr = info['fr'] # frame rate
+    fr = info['frame_rate'] # frame rate
     lr = fr*512. # line rate
 
     ## on Feb 6, 2019 noticed that Alex Attinger's new National Instruments board
@@ -229,6 +234,8 @@ def _VR_align_to_2P(vr_dframe,infofile, n_imaging_planes = 1):
 
     vr_dframe = vr_dframe.iloc[-numVRFrames:]
     print(ttl_times.shape,vr_dframe.shape)
+    print(ttl_times[0],ttl_times[-1])
+    print(ca_time[0],ca_time[-1])
     f_mean = sp.interpolate.interp1d(ttl_times,vr_dframe['pos']._values,axis=0,kind='slinear')
     # f_mean = sp.interpolate.interp1d(vr_time,vr_dframe['pos']._values,axis=0,kind='slinear')
     ca_df.loc[mask,'pos'] = f_mean(ca_time[mask])
