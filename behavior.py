@@ -92,7 +92,9 @@ def lick_plot_task(d,bin_edges,rzone0=(250.,315),rzone1=(350,415),smooth=True,ra
     meanlr_ax.axvspan(rzone0[0],rzone0[1],alpha=.2,color=plt.cm.cool(np.float(1)),zorder=0)
     meanlr_ax.axvspan(rzone1[0],rzone1[1],alpha=.2,color=plt.cm.cool(np.float(0)),zorder=0)
     for i, m in enumerate(np.unique(d['labels'])):
-        meanlr_ax.plot(bin_edges[:-1],np.nanmean(d[m],axis=0),color=plt.cm.cool(1-np.float(m)))
+        mu, sem = np.nanmean(d[m],axis=0),sp.stats.sem(d[m],axis=0,nan_policy='omit')
+        meanlr_ax.fill_between(bin_edges[:-1],mu-sem,y2=mu+sem,color=plt.cm.cool(1-np.float(m)),alpha=.4)
+        # meanlr_ax.plot(bin_edges[:-1],np.nanmean(d[m],axis=0),color=plt.cm.cool(1-np.float(m)))
     meanlr_ax.set_ylabel('Licks/sec',size='xx-large')
     meanlr_ax.set_xlabel('Position (cm)',size='xx-large')
 
